@@ -1,0 +1,141 @@
+{
+  "name": "composer-web",
+  "displayName": "Composer Web",
+  "description": "A powerful browser integration extension for Cursor that captures live browser content and logs directly into Composer",
+  "version": "1.0.0",
+  "publisher": "saketsarin",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saketsarin/composer-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saketsarin/composer-web/issues"
+  },
+  "homepage": "https://github.com/saketsarin/composer-web#readme",
+  "keywords": [
+    "cursor",
+    "browser",
+    "debugging",
+    "screenshot",
+    "console",
+    "network",
+    "monitoring",
+    "chrome",
+    "devtools"
+  ],
+  "engines": {
+    "vscode": "^1.96.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "*"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Composer Web",
+      "properties": {
+        "composerWeb.captureFormat": {
+          "type": "string",
+          "default": "png",
+          "enum": [
+            "png",
+            "jpg"
+          ],
+          "description": "Format for UI captures"
+        },
+        "composerWeb.includeStyles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include CSS styles in UI data"
+        },
+        "composerWeb.quality": {
+          "type": "number",
+          "default": 0.95,
+          "minimum": 0.1,
+          "maximum": 1,
+          "description": "Quality of the captured images (0.1-1.0)"
+        },
+        "composerWeb.remoteDebuggingUrl": {
+          "type": "string",
+          "default": "http://localhost:9222",
+          "description": "The remote debugging URL for your browser (e.g., http://localhost:9222). Ensure your browser is started with the --remote-debugging-port flag."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "web-preview.connectTab",
+        "title": "Connect Browser Tab",
+        "category": "Web Preview"
+      },
+      {
+        "command": "web-preview.captureTab",
+        "title": "Capture Tab Info",
+        "category": "Web Preview"
+      },
+      {
+        "command": "web-preview.smartCapture",
+        "title": "Capture/Connect Browser Tab",
+        "category": "Web Preview"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "web-preview.smartCapture",
+        "key": "ctrl+;",
+        "mac": "cmd+;",
+        "when": "editorTextFocus && (editorLangId == 'html' || editorLangId == 'css' || editorLangId == 'javascript' || editorLangId == 'typescript' || editorLangId == 'javascriptreact' || editorLangId == 'typescriptreact')"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm install --package-lock-only && vsce package",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile && npm run compile-tests",
+    "test": "node ./out/test/runTest.js",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^16.18.0",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@vscode/test-electron": "^2.3.8",
+    "esbuild": "^0.19.12",
+    "eslint": "^8.47.0",
+    "fast-glob": "^3.3.2",
+    "mocha": "^9.2.2",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.2.0"
+  },
+  "npm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@types/node",
+        "typescript",
+        "eslint",
+        "@types/vscode"
+      ],
+      "allowAny": [
+        "@types/node"
+      ]
+    }
+  }
+}
