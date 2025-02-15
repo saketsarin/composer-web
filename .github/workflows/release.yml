@@ -48,7 +48,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           files: composer-web-*.vsix
-          name: Release v${{ steps.get_version.outputs.version }}
+          name: v${{ steps.get_version.outputs.version }}
           tag_name: v${{ steps.get_version.outputs.version }}
           generate_release_notes: true
           draft: false
