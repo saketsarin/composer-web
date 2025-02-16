@@ -4,6 +4,7 @@
   "description": "A powerful browser integration extension for Cursor that captures live browser content and logs directly into Composer",
   "version": "1.0.1",
   "publisher": "saketsarin",
+  "icon": "assets/icon.png",
   "private": false,
   "repository": {
     "type": "git",

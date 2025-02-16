@@ -1,4 +1,7 @@
-# Composer Web Extension
+<h1>
+  <img src="assets/icon.png" width="30" height="30" alt="Composer Web Logo" style="vertical-align: middle; margin-right: 5px">
+  Composer Web Extension
+</h1>
 
 ![Demo](assets/demo.gif)
 
