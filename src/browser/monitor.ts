@@ -17,6 +17,7 @@ export class BrowserMonitor extends EventEmitter {
   private statusBarItem: vscode.StatusBarItem;
   private isConnected: boolean = false;
   private configManager: ConfigManager;
+  private disconnectEmitter = new vscode.EventEmitter<void>();
 
   private constructor() {
     super();
@@ -24,6 +25,7 @@ export class BrowserMonitor extends EventEmitter {
       vscode.StatusBarAlignment.Right,
       100
     );
+    this.statusBarItem.command = "web-preview.smartCapture";
     this.configManager = ConfigManager.getInstance();
     this.updateStatusBar();
   }
@@ -38,10 +40,8 @@ export class BrowserMonitor extends EventEmitter {
   private updateStatusBar() {
     if (!this.isConnected) {
       this.statusBarItem.text = "$(plug) Connect Browser Tab";
-      this.statusBarItem.command = "web-preview.connectTab";
     } else {
       this.statusBarItem.text = `$(eye) Capture Tab Info (${this.activePage?.info.title})`;
-      this.statusBarItem.command = "web-preview.captureTab";
     }
     this.statusBarItem.tooltip = this.isConnected
       ? `Connected to: ${this.activePage?.info.url}`
@@ -212,6 +212,15 @@ export class BrowserMonitor extends EventEmitter {
     await this.disconnect();
   }
 
+  public clearLogs(): void {
+    this.consoleLogs = [];
+    this.networkLogs = [];
+  }
+
+  public onDisconnect(listener: () => void): vscode.Disposable {
+    return this.disconnectEmitter.event(listener);
+  }
+
   public async disconnect() {
     await this.stopMonitoring();
     if (this.browser) {
@@ -220,6 +229,7 @@ export class BrowserMonitor extends EventEmitter {
     }
     this.isConnected = false;
     this.updateStatusBar();
+    this.disconnectEmitter.fire();
   }
 
   private async stopMonitoring() {

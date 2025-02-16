@@ -1,4 +1,4 @@
-name: Release VSCode Extension
+name: Release Extension
 
 on:
   push:

@@ -57,10 +57,6 @@ export class ComposerIntegration {
       try {
         await this.openComposer();
 
-        if (!logs) {
-          logs = { console: [], network: [] };
-        }
-
         const formattedLogs = logs ? this.formatLogs(logs) : "";
 
         if (screenshot) {

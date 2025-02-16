@@ -18,15 +18,36 @@ suite("Extension Test Suite", () => {
 
     // Check each command
     const requiredCommands = [
-      "web-preview.connectTab",
-      "web-preview.captureTab",
       "web-preview.smartCapture",
+      "web-preview.clearLogs",
+      "web-preview.sendLogs",
+      "web-preview.sendScreenshot",
     ];
 
     for (const cmd of requiredCommands) {
       assert.ok(
         commands.includes(cmd),
         `Command "${cmd}" should be registered`
+      );
+    }
+  });
+
+  test("Commands should be available only when connected", async () => {
+    const restrictedCommands = [
+      "web-preview.clearLogs",
+      "web-preview.sendLogs",
+      "web-preview.sendScreenshot",
+    ];
+
+    const packageJson = require("../../../package.json");
+    const commandPalette = packageJson.contributes.menus.commandPalette;
+
+    for (const cmd of restrictedCommands) {
+      const cmdConfig = commandPalette.find((c: any) => c.command === cmd);
+      assert.strictEqual(
+        cmdConfig?.when,
+        "web-preview:isConnected",
+        `Command "${cmd}" should only be available when connected`
       );
     }
   });

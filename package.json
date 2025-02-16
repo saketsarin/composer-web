@@ -69,19 +69,24 @@
     },
     "commands": [
       {
-        "command": "web-preview.connectTab",
-        "title": "Connect Browser Tab",
-        "category": "Web Preview"
-      },
-      {
-        "command": "web-preview.captureTab",
-        "title": "Capture Tab Info",
-        "category": "Web Preview"
-      },
-      {
         "command": "web-preview.smartCapture",
         "title": "Capture/Connect Browser Tab",
-        "category": "Web Preview"
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.clearLogs",
+        "title": "Clear Browser Logs",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.sendLogs",
+        "title": "Send Tab Logs to Composer",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.sendScreenshot",
+        "title": "Send Tab Screenshot to Composer",
+        "category": "Composer Web"
       }
     ],
     "keybindings": [
@@ -89,7 +94,71 @@
         "command": "web-preview.smartCapture",
         "key": "ctrl+;",
         "mac": "cmd+;",
-        "when": "editorTextFocus && (editorLangId == 'html' || editorLangId == 'css' || editorLangId == 'javascript' || editorLangId == 'typescript' || editorLangId == 'javascriptreact' || editorLangId == 'typescriptreact')"
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "web-preview.clearLogs",
+        "key": "ctrl+shift+;",
+        "mac": "cmd+shift+;",
+        "when": "editorFocus"
+      },
+      {
+        "command": "web-preview.sendLogs",
+        "key": "ctrl+'",
+        "mac": "cmd+'",
+        "when": "editorFocus"
+      },
+      {
+        "command": "web-preview.sendScreenshot",
+        "key": "ctrl+shift+'",
+        "mac": "cmd+shift+'",
+        "when": "editorFocus"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "web-preview.clearLogs",
+          "when": "web-preview:isConnected"
+        },
+        {
+          "command": "web-preview.sendLogs",
+          "when": "web-preview:isConnected"
+        },
+        {
+          "command": "web-preview.sendScreenshot",
+          "when": "web-preview:isConnected"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "web-preview.submenu",
+          "group": "web-preview"
+        }
+      ],
+      "web-preview.submenu": [
+        {
+          "command": "web-preview.clearLogs",
+          "group": "1_logs"
+        },
+        {
+          "command": "web-preview.sendLogs",
+          "group": "1_logs"
+        },
+        {
+          "command": "web-preview.sendScreenshot",
+          "group": "2_capture"
+        },
+        {
+          "command": "web-preview.smartCapture",
+          "group": "2_capture"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "web-preview.submenu",
+        "label": "Composer Web"
       }
     ]
   },
