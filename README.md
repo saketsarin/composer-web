@@ -1,5 +1,7 @@
 # Composer Web Extension
 
+![Demo](https://github.com/saketsarin/composer-web/assets/demo.gif)
+
 A powerful Cursor extension that captures live browser content and logs directly into Composer. Perfect for debugging, documentation, and sharing web content with context.
 
 ## Features
