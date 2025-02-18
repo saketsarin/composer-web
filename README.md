@@ -82,7 +82,13 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
    - Check if port 9222 is available
    - Try restarting Chrome
 
-2. **Incomplete Capture?**
+2. **Session Disconnected?**
+
+   - The extension will automatically detect stale sessions and show a notification
+   - Click the status bar item to reconnect
+   - No need to restart Cursor - just reconnect when prompted
+
+3. **Incomplete Capture?**
    - Wait for all content to load
    - Scroll through the page once
    - Check console for errors
