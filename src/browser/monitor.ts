@@ -18,6 +18,7 @@ export class BrowserMonitor extends EventEmitter {
   private isConnected: boolean = false;
   private configManager: ConfigManager;
   private disconnectEmitter = new vscode.EventEmitter<void>();
+  private healthCheckInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
     super();
@@ -109,12 +110,19 @@ export class BrowserMonitor extends EventEmitter {
     }
 
     const client = await page.createCDPSession();
-    await Promise.all([
-      client.send("Page.enable"),
-      client.send("Network.enable"),
-      client.send("Runtime.enable"),
-      client.send("Log.enable"),
-    ]);
+
+    try {
+      await Promise.all([
+        client.send("Page.enable"),
+        client.send("Network.enable"),
+        client.send("Runtime.enable"),
+        client.send("Log.enable"),
+      ]);
+    } catch (error) {
+      vscode.window.showErrorMessage("Failed to initialize browser session");
+      await this.disconnect();
+      return;
+    }
 
     this.activePage = { page, client, info: pageInfo };
     this.isConnected = true;
@@ -145,6 +153,15 @@ export class BrowserMonitor extends EventEmitter {
   }
 
   private setupEventListeners(client: puppeteer.CDPSession) {
+    this.healthCheckInterval = setInterval(async () => {
+      try {
+        await client.send("Runtime.evaluate", { expression: "1" });
+      } catch (error) {
+        this.clearHealthCheck();
+        await this.handleSessionError();
+      }
+    }, 5 * 60 * 1000);
+
     client.on("Runtime.consoleAPICalled", (e) => {
       const log: BrowserLog = {
         type: e.type,
@@ -205,11 +222,22 @@ export class BrowserMonitor extends EventEmitter {
     );
   }
 
+  private async handleSessionError() {
+    if (this.isConnected) {
+      vscode.window.showErrorMessage(
+        "Browser session disconnected. Please reconnect to continue."
+      );
+      await this.disconnect();
+    }
+  }
+
   private async handlePageClosed() {
-    vscode.window.showWarningMessage(
-      "The monitored tab was closed. Monitoring has stopped."
-    );
-    await this.disconnect();
+    if (this.isConnected) {
+      vscode.window.showWarningMessage(
+        "The monitored tab was closed. Monitoring has stopped."
+      );
+      await this.disconnect();
+    }
   }
 
   public clearLogs(): void {
@@ -222,6 +250,7 @@ export class BrowserMonitor extends EventEmitter {
   }
 
   public async disconnect() {
+    this.clearHealthCheck();
     await this.stopMonitoring();
     if (this.browser) {
       await this.browser.disconnect().catch(() => {});
@@ -262,6 +291,24 @@ export class BrowserMonitor extends EventEmitter {
   }
 
   public async getPageForScreenshot(): Promise<puppeteer.Page | null> {
-    return this.activePage?.page || null;
+    if (!this.activePage?.page) {
+      return null;
+    }
+
+    try {
+      // Verify the page is still responsive
+      await this.activePage.page.evaluate(() => true);
+      return this.activePage.page;
+    } catch (error) {
+      await this.handleSessionError();
+      return null;
+    }
+  }
+
+  private clearHealthCheck() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
   }
 }
