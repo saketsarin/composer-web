@@ -46,7 +46,8 @@ export async function verifyClipboardContent(
           : "osascript -e \"get the clipboard as «class PNGf»\"";
       break;
     case "win32":
-      command = "powershell -command \"[Windows.Forms.Clipboard]::ContainsImage()\"";
+      command =
+        "powershell -command \"[Windows.Forms.Clipboard]::ContainsImage()\"";
       break;
     case "linux":
       command =
@@ -139,10 +140,11 @@ function getClipboardTextCommand(
     case "darwin":
       return `echo "${text.replace(/"/g, "\\\"")}" | pbcopy`;
     case "win32":
-      return `powershell -command "Set-Clipboard -Value \\"${text.replace(
-        /"/g,
-        "`\""
-      )}\\""`;
+      const escapedText = text
+        .replace(/'/g, "''")
+        .replace(/`/g, "``")
+        .replace(/\$/g, "`$");
+      return `powershell -command "Set-Clipboard -Value '${escapedText}'"`;
     case "linux":
       return `xclip -selection clipboard -in <<< "${text.replace(
         /"/g,
