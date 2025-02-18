@@ -10,7 +10,8 @@ export async function clearClipboard(): Promise<void> {
       command = "osascript -e \"set the clipboard to \"\"\"";
       break;
     case "win32":
-      command = "powershell -command \"Set-Clipboard -Value ''\"";
+      command =
+        "powershell -command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::Clear()\"";
       break;
     case "linux":
       command = "xclip -selection clipboard -i /dev/null";
