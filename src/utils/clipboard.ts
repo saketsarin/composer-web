@@ -115,13 +115,15 @@ function getClipboardImageCommand(
 ): string | null {
   switch (platform) {
     case "darwin":
-      return `
-        osascript -e "set the clipboard to \"\""
-        osascript -e '
-          set imageFile to POSIX file "${imagePath}"
+      const escapedPath = imagePath.replace(/"/g, "\\\"");
+      return `osascript -e "
+        try
+          set imageFile to (POSIX file \\"${escapedPath}\\")
           set imageData to read imageFile as «class PNGf»
           set the clipboard to imageData
-        '`;
+        on error errMsg
+          return errMsg
+        end try"`;
     case "win32":
       return `powershell -command \"Add-Type -AssemblyName System.Windows.Forms;$img=[System.Drawing.Image]::FromFile(\"${imagePath}\");[System.Windows.Forms.Clipboard]::SetImage($img);$img.Dispose()\"`;
     case "linux":

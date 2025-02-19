@@ -120,9 +120,6 @@ export class CommandHandlers {
   private async handleConnect(): Promise<void> {
     try {
       await this.browserMonitor.connect();
-      vscode.window.showInformationMessage(
-        "Successfully connected to browser tab"
-      );
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(`Failed to connect: ${msg}`);
