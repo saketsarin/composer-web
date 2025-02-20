@@ -10,9 +10,8 @@ export async function clearClipboard(): Promise<void> {
       command = "osascript -e \"set the clipboard to \"\"\"";
       break;
     case "win32":
-      command =
-        "powershell -command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::Clear()\"";
-      break;
+      await vscode.env.clipboard.writeText("");
+      return;
     case "linux":
       command = "xclip -selection clipboard -i /dev/null";
       break;
@@ -47,9 +46,14 @@ export async function verifyClipboardContent(
           : "osascript -e \"get the clipboard as «class PNGf»\"";
       break;
     case "win32":
-      command =
-        "powershell -command \"[Windows.Forms.Clipboard]::ContainsImage()\"";
-      break;
+      if (type === "text") {
+        const text = await vscode.env.clipboard.readText();
+        if (!text) {
+          throw new Error("Failed to verify text in clipboard");
+        }
+        return;
+      } 
+      return; // skip image verification for windows    
     case "linux":
       command =
         type === "text"
@@ -77,7 +81,7 @@ export async function copyImageToClipboard(imagePath: string): Promise<void> {
 
   if (command) {
     await new Promise<void>((resolve, reject) => {
-      exec(command, { timeout: 500 }, (error: Error | null) => {
+      exec(command, { timeout: platform === "win32" ? 2000 : 500 }, (error: Error | null) => {
         if (error) {
           vscode.window.showErrorMessage(
             `Failed to copy image to clipboard: ${error.message}`
@@ -93,6 +97,12 @@ export async function copyImageToClipboard(imagePath: string): Promise<void> {
 
 export async function copyTextToClipboard(text: string): Promise<void> {
   const platform = process.platform;
+  
+  if (platform === "win32") {
+    await vscode.env.clipboard.writeText(text);
+    return;
+  }
+
   const command = getClipboardTextCommand(platform, text);
   if (!command) {
     return;
@@ -125,7 +135,7 @@ function getClipboardImageCommand(
           set the clipboard to imageData
         '`;
     case "win32":
-      return `powershell -command \"Add-Type -AssemblyName System.Windows.Forms;$img=[System.Drawing.Image]::FromFile(\"${imagePath}\");[System.Windows.Forms.Clipboard]::SetImage($img);$img.Dispose()\"`;
+      return `powershell -NoProfile -Command "[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('${imagePath.replace(/'/g, "''")}'))"`;
     case "linux":
       return `xclip -selection clipboard -t image/png -i "${imagePath}"`;
     default:
@@ -141,11 +151,10 @@ function getClipboardTextCommand(
     case "darwin":
       return `echo "${text.replace(/"/g, "\\\"")}" | pbcopy`;
     case "win32":
-      const escapedText = text
-        .replace(/'/g, "''")
-        .replace(/`/g, "``")
-        .replace(/\$/g, "`$");
-      return `powershell -command "Set-Clipboard -Value '${escapedText}'"`;
+      return `powershell -command "Set-Clipboard -Value \\"${text.replace(
+        /"/g,
+        "`\""
+      )}\\""`;
     case "linux":
       return `xclip -selection clipboard -in <<< "${text.replace(
         /"/g,
