@@ -1,5 +1,8 @@
 import { exec } from "child_process";
 import * as vscode from "vscode";
+import { ToastService } from "./toast";
+
+const toastService = ToastService.getInstance();
 
 export async function clearClipboard(): Promise<void> {
   const platform = process.platform;
@@ -52,8 +55,8 @@ export async function verifyClipboardContent(
           throw new Error("Failed to verify text in clipboard");
         }
         return;
-      } 
-      return; // skip image verification for windows    
+      }
+      return; // skip image verification for windows
     case "linux":
       command =
         type === "text"
@@ -81,23 +84,27 @@ export async function copyImageToClipboard(imagePath: string): Promise<void> {
 
   if (command) {
     await new Promise<void>((resolve, reject) => {
-      exec(command, { timeout: platform === "win32" ? 2000 : 500 }, (error: Error | null) => {
-        if (error) {
-          vscode.window.showErrorMessage(
-            `Failed to copy image to clipboard: ${error.message}`
-          );
-          reject(error);
-        } else {
-          resolve();
+      exec(
+        command,
+        { timeout: platform === "win32" ? 2000 : 500 },
+        (error: Error | null) => {
+          if (error) {
+            toastService.showError(
+              `Failed to copy image to clipboard: ${error.message}`
+            );
+            reject(error);
+          } else {
+            resolve();
+          }
         }
-      });
+      );
     });
   }
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
   const platform = process.platform;
-  
+
   if (platform === "win32") {
     await vscode.env.clipboard.writeText(text);
     return;
@@ -110,7 +117,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     exec(command, { timeout: 500 }, (error: Error | null) => {
       if (error) {
-        vscode.window.showErrorMessage(
+        toastService.showError(
           `Failed to copy text logs to clipboard: ${error.message}`
         );
         reject(error);
@@ -135,7 +142,10 @@ function getClipboardImageCommand(
           set the clipboard to imageData
         '`;
     case "win32":
-      return `powershell -NoProfile -Command "[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('${imagePath.replace(/'/g, "''")}'))"`;
+      return `powershell -NoProfile -Command "[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('${imagePath.replace(
+        /'/g,
+        "''"
+      )}'))"`;
     case "linux":
       return `xclip -selection clipboard -t image/png -i "${imagePath}"`;
     default:
