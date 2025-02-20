@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/saketsarin/composer-web/discussions
+    about: Please ask and answer questions here.
+  - name: Documentation
+    url: https://github.com/saketsarin/composer-web/blob/main/README.md
+    about: Check our documentation for guides and common solutions.

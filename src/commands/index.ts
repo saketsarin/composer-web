@@ -1,12 +1,20 @@
-import * as vscode from "vscode";
 import { BrowserMonitor } from "../browser/monitor";
 import { ComposerIntegration } from "../composer/integration";
+import { ToastService } from "../utils/toast";
 
 export class CommandHandlers {
+  private browserMonitor: BrowserMonitor;
+  private composerIntegration: ComposerIntegration;
+  private toastService: ToastService;
+
   constructor(
-    private readonly browserMonitor: BrowserMonitor,
-    private readonly composerIntegration: ComposerIntegration
-  ) {}
+    browserMonitor: BrowserMonitor,
+    composerIntegration: ComposerIntegration
+  ) {
+    this.browserMonitor = browserMonitor;
+    this.composerIntegration = composerIntegration;
+    this.toastService = ToastService.getInstance();
+  }
 
   public async handleSmartCapture(): Promise<void> {
     if (this.browserMonitor.isPageConnected()) {
@@ -18,101 +26,72 @@ export class CommandHandlers {
 
   public async handleClearLogs(): Promise<void> {
     if (!this.browserMonitor.isPageConnected()) {
-      vscode.window.showErrorMessage(
-        "No browser tab connected. Please connect a tab first."
-      );
+      this.toastService.showNoTabConnected();
       return;
     }
 
-    const result = await vscode.window.showWarningMessage(
-      "Are you sure you want to clear all browser logs?",
-      "Yes",
-      "No"
+    const confirmed = await this.toastService.showConfirmation(
+      "Are you sure you want to clear all browser logs?"
     );
 
-    if (result === "Yes") {
+    if (confirmed) {
       this.browserMonitor.clearLogs();
-      vscode.window.showInformationMessage("Browser logs cleared successfully");
+      this.toastService.showLogsClearedSuccess();
     }
   }
 
   public async handleSendLogs(): Promise<void> {
     if (!this.browserMonitor.isPageConnected()) {
-      vscode.window.showErrorMessage(
-        "No browser tab connected. Please connect a tab first."
-      );
+      this.toastService.showNoTabConnected();
       return;
     }
 
     try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Sending Logs",
-          cancellable: false,
-        },
-        async () => {
-          await this.composerIntegration.sendToComposer(
-            undefined,
-            this.browserMonitor.getLogs()
-          );
-        }
-      );
-      vscode.window.showInformationMessage(
-        "Logs sent to Composer successfully"
-      );
+      await this.toastService.showProgress("Sending Logs", async () => {
+        await this.composerIntegration.sendToComposer(
+          undefined,
+          this.browserMonitor.getLogs()
+        );
+      });
+      this.toastService.showLogsSentSuccess();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Failed to send logs: ${msg}`);
+      this.toastService.showError(`Failed to send logs: ${msg}`);
     }
   }
 
   public async handleSendScreenshot(): Promise<void> {
     if (!this.browserMonitor.isPageConnected()) {
-      vscode.window.showErrorMessage(
-        "No browser tab connected. Please connect a tab first."
-      );
+      this.toastService.showNoTabConnected();
       return;
     }
 
     try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Capturing Screenshot",
-          cancellable: false,
-        },
-        async (progress) => {
-          const page = await this.browserMonitor.getPageForScreenshot();
-          if (!page) {
-            throw new Error("Page not accessible");
-          }
-
-          const screenshot = await page.screenshot({
-            type: "png",
-            fullPage: true,
-            encoding: "binary",
-          });
-
-          progress.report({ message: "Sending to Composer..." });
-          await this.composerIntegration.sendToComposer(
-            Buffer.from(screenshot),
-            undefined
-          );
+      await this.toastService.showProgress("Capturing Screenshot", async () => {
+        const page = await this.browserMonitor.getPageForScreenshot();
+        if (!page) {
+          throw new Error("Page not accessible");
         }
-      );
-      vscode.window.showInformationMessage(
-        "Screenshot sent to Composer successfully"
-      );
+
+        const screenshot = await page.screenshot({
+          type: "png",
+          fullPage: true,
+          encoding: "binary",
+        });
+
+        await this.composerIntegration.sendToComposer(
+          Buffer.from(screenshot),
+          undefined
+        );
+      });
+      this.toastService.showScreenshotSentSuccess();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("Target closed") || msg.includes("Target crashed")) {
-        vscode.window.showErrorMessage(
-          "Browser page was closed or crashed. Please reconnect to continue monitoring."
-        );
+        this.toastService.showPageClosedOrCrashed();
         await this.browserMonitor.disconnect();
       } else {
-        vscode.window.showErrorMessage(`Screenshot capture failed: ${msg}`);
+        this.toastService.showError(`Screenshot capture failed: ${msg}`);
       }
     }
   }
@@ -120,64 +99,49 @@ export class CommandHandlers {
   private async handleConnect(): Promise<void> {
     try {
       await this.browserMonitor.connect();
-      vscode.window.showInformationMessage(
-        "Successfully connected to browser tab"
-      );
+      this.toastService.showConnectionSuccess();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Failed to connect: ${msg}`);
+      this.toastService.showError(`Failed to connect: ${msg}`);
     }
   }
 
   private async handleCapture(): Promise<void> {
     try {
       if (!this.browserMonitor.isPageConnected()) {
-        vscode.window.showErrorMessage(
-          "No browser tab connected. Please connect a tab first."
-        );
+        this.toastService.showNoTabConnected();
         return;
       }
 
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Capturing Tab Info",
-          cancellable: false,
-        },
-        async (progress) => {
-          const activePage = this.browserMonitor.getActivePage();
-          if (!activePage) {
-            throw new Error("No active page found");
-          }
-
-          progress.report({ message: "Taking screenshot..." });
-          const page = await this.browserMonitor.getPageForScreenshot();
-          if (!page) {
-            throw new Error("Page not accessible");
-          }
-
-          const screenshot = await page.screenshot({
-            type: "png",
-            fullPage: true,
-            encoding: "binary",
-          });
-
-          progress.report({ message: "Sending to Composer..." });
-          await this.composerIntegration.sendToComposer(
-            Buffer.from(screenshot),
-            this.browserMonitor.getLogs()
-          );
+      await this.toastService.showProgress("Capturing Tab Info", async () => {
+        const activePage = this.browserMonitor.getActivePage();
+        if (!activePage) {
+          throw new Error("No active page found");
         }
-      );
+
+        const page = await this.browserMonitor.getPageForScreenshot();
+        if (!page) {
+          throw new Error("Page not accessible");
+        }
+
+        const screenshot = await page.screenshot({
+          type: "png",
+          fullPage: true,
+          encoding: "binary",
+        });
+
+        await this.composerIntegration.sendToComposer(
+          Buffer.from(screenshot),
+          this.browserMonitor.getLogs()
+        );
+      });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("Target closed") || msg.includes("Target crashed")) {
-        vscode.window.showErrorMessage(
-          "Browser page was closed or crashed. Please reconnect to continue monitoring."
-        );
+        this.toastService.showPageClosedOrCrashed();
         await this.browserMonitor.disconnect();
       } else {
-        vscode.window.showErrorMessage(`Capture failed: ${msg}`);
+        this.toastService.showError(`Capture failed: ${msg}`);
       }
     }
   }

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ComposerIntegration } from "./composer/integration";
 import { BrowserMonitor } from "./browser/monitor";
 import { CommandHandlers } from "./commands";
+import { ToastService } from "./utils/toast";
 
 export function activate(context: vscode.ExtensionContext) {
   const composerIntegration = ComposerIntegration.getInstance(context);
@@ -10,6 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
     browserMonitor,
     composerIntegration
   );
+  const toastService = ToastService.getInstance();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("web-preview.smartCapture", () =>
@@ -28,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   browserMonitor.onDisconnect(() => {
-    vscode.window.showWarningMessage("Browser tab disconnected");
+    toastService.showBrowserDisconnected();
   });
 }
 

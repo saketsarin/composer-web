@@ -99,6 +99,33 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
 - Google Chrome/Chromium
 - Node.js ≥ 18.0.0
 
+## Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+### 🐛 Found a Bug?
+
+- **Ensure the bug hasn't already been reported** by searching our [Issues](../../issues)
+- If you can't find an existing issue, [open a new bug report](../../issues/new?template=bug_report.md) using our bug report template
+
+### 💡 Have a Feature Idea?
+
+- Check our [Issues](../../issues) to see if it's already suggested
+- If not, [create a feature request](../../issues/new?template=feature_request.md) using our feature request template
+
+### 🛠️ Want to Contribute Code?
+
+1. Read our [Contributing Guide](CONTRIBUTING.md)
+2. Fork the repository
+3. Create your feature branch
+4. Make your changes
+5. Open a [Pull Request](../../pulls) using our PR template
+
+For more details, check out our:
+
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+
 ## License
 
 MIT - See LICENSE file for details

@@ -3,6 +3,7 @@ import * as puppeteer from "puppeteer-core";
 import { EventEmitter } from "events";
 import { BrowserLog, MonitoredPage, NetworkRequest, LogData } from "../types";
 import { ConfigManager } from "../config";
+import { ToastService } from "../utils/toast";
 
 export class BrowserMonitor extends EventEmitter {
   private static instance: BrowserMonitor;
@@ -19,6 +20,7 @@ export class BrowserMonitor extends EventEmitter {
   private configManager: ConfigManager;
   private disconnectEmitter = new vscode.EventEmitter<void>();
   private healthCheckInterval: NodeJS.Timeout | null = null;
+  private toastService: ToastService;
 
   private constructor() {
     super();
@@ -28,6 +30,7 @@ export class BrowserMonitor extends EventEmitter {
     );
     this.statusBarItem.command = "web-preview.smartCapture";
     this.configManager = ConfigManager.getInstance();
+    this.toastService = ToastService.getInstance();
     this.updateStatusBar();
   }
 
@@ -99,7 +102,7 @@ export class BrowserMonitor extends EventEmitter {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Failed to connect: ${errorMessage}`);
+      this.toastService.showError(`Failed to connect: ${errorMessage}`);
       this.disconnect();
     }
   }
@@ -119,7 +122,7 @@ export class BrowserMonitor extends EventEmitter {
         client.send("Log.enable"),
       ]);
     } catch (error) {
-      vscode.window.showErrorMessage("Failed to initialize browser session");
+      this.toastService.showError("Failed to initialize browser session");
       await this.disconnect();
       return;
     }
@@ -209,33 +212,24 @@ export class BrowserMonitor extends EventEmitter {
   }
 
   private async showSuccessNotification() {
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Successfully connected to tab",
-        cancellable: false,
-      },
-      async (progress) => {
+    await this.toastService.showProgress(
+      "Successfully connected to tab",
+      async () => {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        progress.report({ increment: 100 });
       }
     );
   }
 
   private async handleSessionError() {
     if (this.isConnected) {
-      vscode.window.showErrorMessage(
-        "Browser session disconnected. Please reconnect to continue."
-      );
+      this.toastService.showSessionDisconnected();
       await this.disconnect();
     }
   }
 
   private async handlePageClosed() {
     if (this.isConnected) {
-      vscode.window.showWarningMessage(
-        "The monitored tab was closed. Monitoring has stopped."
-      );
+      this.toastService.showTabClosed();
       await this.disconnect();
     }
   }
