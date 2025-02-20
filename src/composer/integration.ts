@@ -9,14 +9,17 @@ import {
   copyTextToClipboard,
   delay,
 } from "../utils/clipboard";
+import { ToastService } from "../utils/toast";
 
 export class ComposerIntegration {
   private static instance: ComposerIntegration;
   private readonly context: vscode.ExtensionContext;
   private composerOpened: boolean = false;
+  private toastService: ToastService;
 
   private constructor(context: vscode.ExtensionContext) {
     this.context = context;
+    this.toastService = ToastService.getInstance();
   }
 
   public static getInstance(
@@ -39,7 +42,7 @@ export class ComposerIntegration {
       this.composerOpened = true;
       await delay(100);
     } catch {
-      vscode.window.showErrorMessage(
+      this.toastService.showError(
         "Failed to open composer. Please make sure Cursor is installed and configured."
       );
       return;
@@ -51,70 +54,59 @@ export class ComposerIntegration {
     logs?: LogData
   ): Promise<void> {
     const maxRetries = 2;
-    let attempt = 0;
+    let imageAttempt = 0;
+    let textAttempt = 0;
+    let imageSuccess = false;
+    let textSuccess = false;
 
-    while (attempt <= maxRetries) {
+    const formattedLogs = logs ? this.formatLogs(logs) : "";
+
+    while (
+      (screenshot && !imageSuccess && imageAttempt <= maxRetries) ||
+      (formattedLogs && !textSuccess && textAttempt <= maxRetries)
+    ) {
       try {
         await this.openComposer();
 
-        const formattedLogs = logs ? this.formatLogs(logs) : "";
-
-        if (screenshot) {
-          let imageError: Error | null = null;
-          let textError: Error | null = null;
-
+        if (screenshot && !imageSuccess) {
           await clearClipboard();
-
           try {
             await this.sendImageToComposer(screenshot);
             await verifyClipboardContent("image");
+            imageSuccess = true;
           } catch (err) {
-            imageError = err as Error;
+            if (imageAttempt === maxRetries) {
+              throw new Error(`Failed to send image: ${String(err)}`);
+            }
+            imageAttempt++;
+            await delay(100);
           }
+        }
 
-          if (formattedLogs) {
-            await delay(50);
-            try {
-              await clearClipboard();
-              await this.prepareTextForComposer(formattedLogs);
-              await verifyClipboardContent("text");
-            } catch (err) {
-              textError = err as Error;
-            }
-          }
-
-          if (imageError || textError) {
-            if (attempt < maxRetries) {
-              attempt++;
-              await delay(100);
-              continue;
-            }
-            const errors: string[] = [];
-            if (imageError) {
-              errors.push(`Image: ${String(imageError)}`);
-            }
-            if (textError) {
-              errors.push(`Logs: ${String(textError)}`);
-            }
-            throw new Error(`Failed to send data: ${errors.join(", ")}`);
-          }
-        } else if (formattedLogs) {
+        if (formattedLogs && !textSuccess) {
+          await delay(50);
           await clearClipboard();
-          await this.prepareTextForComposer(formattedLogs);
-          await verifyClipboardContent("text");
+          try {
+            await this.prepareTextForComposer(formattedLogs);
+            await verifyClipboardContent("text");
+            textSuccess = true;
+          } catch (err) {
+            if (textAttempt === maxRetries) {
+              throw new Error(`Failed to send logs: ${String(err)}`);
+            }
+            textAttempt++;
+            await delay(100);
+          }
         }
 
-        await this.showSuccessNotification();
-        return;
-      } catch (error) {
-        if (attempt < maxRetries) {
-          attempt++;
-          await delay(100);
-          continue;
+        if ((!screenshot || imageSuccess) && (!formattedLogs || textSuccess)) {
+          await this.showSuccessNotification();
+          return;
         }
+      } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        vscode.window.showErrorMessage(
+        this.toastService.showError(
           `Failed to send data to composer: ${errorMessage}`
         );
         throw error;
@@ -171,15 +163,10 @@ export class ComposerIntegration {
   }
 
   private async showSuccessNotification() {
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Successfully sent to Composer",
-        cancellable: false,
-      },
-      async (progress) => {
+    await this.toastService.showProgress(
+      "Successfully sent to Composer",
+      async () => {
         await delay(2000);
-        progress.report({ increment: 500 });
       }
     );
   }

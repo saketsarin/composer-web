@@ -2,7 +2,7 @@
   "name": "composer-web",
   "displayName": "Composer Web",
   "description": "A powerful browser integration extension for Cursor that captures live browser content and logs directly into Composer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "saketsarin",
   "icon": "assets/icon.png",
   "private": false,
