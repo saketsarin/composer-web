@@ -166,9 +166,93 @@ export class BrowserMonitor extends EventEmitter {
     }, 5 * 60 * 1000);
 
     client.on("Runtime.consoleAPICalled", (e) => {
+      const formattedArgs = e.args.map((arg) => {
+        if (arg.type === "object" && arg.preview) {
+          if (arg.preview.subtype === "array") {
+            const items = arg.preview.properties
+              .map((p, index) => `${index}: ${p.value}`)
+              .join(",\n    ");
+            return `Array(${arg.preview.properties.length}) [\n    ${items}\n]`;
+          }
+          if (arg.preview.properties) {
+            const props = arg.preview.properties
+              .map(
+                (p) =>
+                  `${p.name}: ${
+                    typeof p.value === "string"
+                      ? `"${p.value}"`
+                      : p.value || "undefined"
+                  }`
+              )
+              .join(", ");
+            return `Object {${props}}`;
+          }
+          return arg.preview.description || "Object {}";
+        } else if (arg.type === "function") {
+          return arg.description || "function";
+        } else if (arg.type === "undefined") {
+          return "undefined";
+        } else if (arg.type === "string") {
+          return arg.value;
+        } else if (arg.type === "number" || arg.type === "boolean") {
+          return String(arg.value);
+        } else if (arg.type === "symbol") {
+          return arg.description || "Symbol()";
+        } else if ("subtype" in arg && arg.subtype === "error") {
+          if (arg.description && arg.description.includes("\n")) {
+            return arg.description;
+          }
+          const stack =
+            arg.preview?.properties?.find((p) => p.name === "stack")?.value ||
+            "";
+          const message =
+            arg.preview?.properties?.find((p) => p.name === "message")?.value ||
+            "";
+          if (stack && message) {
+            return `Error: ${message}\n${stack}`;
+          }
+          return `${arg.description || arg.value || "Error"}`;
+        } else {
+          return arg.value || arg.description || "";
+        }
+      });
+
+      // Special handling for console.table
+      if (e.type === "table") {
+        const arg = e.args[0];
+        if (arg.preview && arg.preview.properties) {
+          const values = arg.preview.properties.map((p) => p.value);
+          formattedArgs.push("\n" + values.join("\n"));
+        }
+      }
+
+      // Special handling for console.trace
+      if (e.type === "trace" && e.stackTrace) {
+        const frames = Array.isArray(e.stackTrace)
+          ? e.stackTrace
+          : [e.stackTrace];
+        const trace = frames
+          .map((frame) => ({
+            functionName: frame.functionName || "(anonymous)",
+            url: frame.url || "",
+            lineNumber: frame.lineNumber || 0,
+            columnNumber: frame.columnNumber || 0,
+          }))
+          .map(
+            (frame) =>
+              `    at ${frame.functionName} (${frame.url}:${frame.lineNumber}:${frame.columnNumber})`
+          )
+          .join("\n");
+
+        if (trace) {
+          formattedArgs[0] = `Trace: ${formattedArgs[0] || "console.trace"}`;
+          formattedArgs.push(`\n${trace}`);
+        }
+      }
+
       const log: BrowserLog = {
         type: e.type,
-        text: e.args.map((arg) => arg.value || arg.description || "").join(" "),
+        args: formattedArgs,
         timestamp: Date.now(),
       };
       this.consoleLogs.push(log);
@@ -178,7 +262,7 @@ export class BrowserMonitor extends EventEmitter {
     client.on("Log.entryAdded", (e) => {
       const log: BrowserLog = {
         type: e.entry.level,
-        text: e.entry.text,
+        args: [e.entry.text],
         timestamp: Date.now(),
       };
       this.consoleLogs.push(log);

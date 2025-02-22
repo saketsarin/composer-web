@@ -174,26 +174,69 @@ export class ComposerIntegration {
   private formatLogs(logs: LogData): string {
     let result = "---Console Logs---\n";
     logs.console.forEach((log) => {
-      const formattedLog = {
-        type: log.type,
-        message: log.text,
-      };
-      result += `${formattedLog.type}: ${formattedLog.message}\n`;
+      const timestamp = new Date(log.timestamp).toLocaleTimeString();
+      let prefix = "";
+
+      switch (log.type) {
+        case "warning":
+          prefix = "[WARN]";
+          break;
+        case "error":
+          prefix = "[ERROR]";
+          break;
+        case "info":
+          prefix = "[INFO]";
+          break;
+        case "debug":
+          prefix = "[DEBUG]";
+          break;
+        case "log":
+        default:
+          prefix = "[LOG]";
+      }
+
+      const formattedArgs = log.args
+        .map((arg) => {
+          if (!arg) return "";
+
+          if (arg.includes("%c")) {
+            const parts = arg.split("%c");
+            if (parts.length >= 2) {
+              const text = parts[0] || "";
+              const style = parts[1] || "";
+              return (
+                text.trim() +
+                (text.trim() && style ? ` ${style.trim()}` : style.trim())
+              );
+            }
+            return arg;
+          }
+
+          return arg;
+        })
+        .filter(Boolean)
+        .join(" ");
+
+      result += `[${timestamp}] ${prefix} ${formattedArgs}\n`;
     });
 
-    result += "\n---Network Requests---\n";
-    logs.network.forEach((log) => {
-      const formattedLog = {
-        url: log.url,
-        status: log.status,
-        ...(log.error && { error: log.error }),
-      };
-      if (formattedLog.error) {
-        result += `Failed: ${formattedLog.url} (${formattedLog.error})\n`;
-      } else {
-        result += `${formattedLog.status}: ${formattedLog.url}\n`;
-      }
-    });
+    if (logs.network.length > 0) {
+      result += "\n---Network Requests---\n";
+      logs.network.forEach((log) => {
+        const timestamp = new Date(log.timestamp).toLocaleTimeString();
+        const formattedLog = {
+          url: log.url,
+          status: log.status,
+          ...(log.error && { error: log.error }),
+        };
+        if (formattedLog.error) {
+          result += `[${timestamp}] [FAILED] ${formattedLog.url} (${formattedLog.error})\n`;
+        } else {
+          const statusPrefix = formattedLog.status >= 400 ? "[ERROR]" : "[OK]";
+          result += `[${timestamp}] ${statusPrefix} ${formattedLog.status}: ${formattedLog.url}\n`;
+        }
+      });
+    }
     return result;
   }
 }
