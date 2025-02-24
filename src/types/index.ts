@@ -1,6 +1,6 @@
 export interface BrowserLog {
   type: string;
-  text: string;
+  args: string[];
   timestamp: number;
 }
 
