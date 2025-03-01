@@ -13,11 +13,9 @@ export async function clearClipboard(): Promise<void> {
       command = "osascript -e \"set the clipboard to \"\"\"";
       break;
     case "win32":
+    case "linux":
       await vscode.env.clipboard.writeText("");
       return;
-    case "linux":
-      command = "xclip -selection clipboard -i /dev/null";
-      break;
   }
 
   if (command) {
@@ -49,6 +47,7 @@ export async function verifyClipboardContent(
           : "osascript -e \"get the clipboard as «class PNGf»\"";
       break;
     case "win32":
+    case "linux":
       if (type === "text") {
         const text = await vscode.env.clipboard.readText();
         if (!text) {
@@ -56,12 +55,9 @@ export async function verifyClipboardContent(
         }
         return;
       }
-      return; // skip image verification for windows
-    case "linux":
-      command =
-        type === "text"
-          ? "xclip -selection clipboard -o"
-          : "xclip -selection clipboard -t image/png -o";
+      if (platform === "linux" && type === "image") {
+        command = "xclip -selection clipboard -t image/png -o";
+      }
       break;
   }
 
@@ -105,7 +101,7 @@ export async function copyImageToClipboard(imagePath: string): Promise<void> {
 export async function copyTextToClipboard(text: string): Promise<void> {
   const platform = process.platform;
 
-  if (platform === "win32") {
+  if (platform === "win32" || platform === "linux") {
     await vscode.env.clipboard.writeText(text);
     return;
   }
@@ -160,16 +156,6 @@ function getClipboardTextCommand(
   switch (platform) {
     case "darwin":
       return `echo "${text.replace(/"/g, "\\\"")}" | pbcopy`;
-    case "win32":
-      return `powershell -command "Set-Clipboard -Value \\"${text.replace(
-        /"/g,
-        "`\""
-      )}\\""`;
-    case "linux":
-      return `echo "${text.replace(
-        /"/g,
-        "\\\""
-      )}" | xclip -selection clipboard -in`;
     default:
       return null;
   }
