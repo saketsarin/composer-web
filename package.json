@@ -94,26 +94,22 @@
       {
         "command": "web-preview.smartCapture",
         "key": "ctrl+;",
-        "mac": "cmd+;",
-        "when": "editorTextFocus"
+        "mac": "cmd+;"
       },
       {
         "command": "web-preview.clearLogs",
         "key": "ctrl+shift+;",
-        "mac": "cmd+shift+;",
-        "when": "editorFocus"
+        "mac": "cmd+shift+;"
       },
       {
         "command": "web-preview.sendLogs",
         "key": "ctrl+'",
-        "mac": "cmd+'",
-        "when": "editorFocus"
+        "mac": "cmd+'"
       },
       {
         "command": "web-preview.sendScreenshot",
         "key": "ctrl+shift+'",
-        "mac": "cmd+shift+'",
-        "when": "editorFocus"
+        "mac": "cmd+shift+'"
       }
     ],
     "menus": {
