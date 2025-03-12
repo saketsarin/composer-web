@@ -4,7 +4,6 @@ import * as path from "path";
 import { LogData } from "../types";
 import {
   clearClipboard,
-  verifyClipboardContent,
   copyImageToClipboard,
   copyTextToClipboard,
   delay,
@@ -72,14 +71,17 @@ export class ComposerIntegration {
           await clearClipboard();
           try {
             await this.sendImageToComposer(screenshot);
-            await verifyClipboardContent("image");
+            await delay(50);
+            await vscode.commands.executeCommand(
+              "editor.action.clipboardPasteAction"
+            );
             imageSuccess = true;
           } catch (err) {
             if (imageAttempt === maxRetries) {
               throw new Error(`Failed to send image: ${String(err)}`);
             }
             imageAttempt++;
-            await delay(100);
+            await delay(50);
           }
         }
 
@@ -88,14 +90,17 @@ export class ComposerIntegration {
           await clearClipboard();
           try {
             await this.prepareTextForComposer(formattedLogs);
-            await verifyClipboardContent("text");
+            await delay(50);
+            await vscode.commands.executeCommand(
+              "editor.action.clipboardPasteAction"
+            );
             textSuccess = true;
           } catch (err) {
             if (textAttempt === maxRetries) {
               throw new Error(`Failed to send logs: ${String(err)}`);
             }
             textAttempt++;
-            await delay(100);
+            await delay(50);
           }
         }
 

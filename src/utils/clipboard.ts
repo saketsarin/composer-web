@@ -33,71 +33,22 @@ export async function clearClipboard(): Promise<void> {
   }
 }
 
-export async function verifyClipboardContent(
-  type: "image" | "text"
-): Promise<void> {
-  await delay(100);
-
-  const platform = process.platform;
-  let command: string | null = null;
-
-  switch (platform) {
-    case "darwin":
-      command =
-        type === "text"
-          ? "osascript -e \"get the clipboard\""
-          : "osascript -e \"get the clipboard as «class PNGf»\"";
-      break;
-    case "win32":
-      if (type === "text") {
-        const text = await vscode.env.clipboard.readText();
-        if (!text) {
-          throw new Error("Failed to verify text in clipboard");
-        }
-        return;
-      }
-      return; // skip image verification for windows
-    case "linux":
-      command =
-        type === "text"
-          ? "xclip -selection clipboard -o"
-          : "xclip -selection clipboard -t image/png -o";
-      break;
-  }
-
-  if (command) {
-    await new Promise<void>((resolve, reject) => {
-      exec(command!, { timeout: 500 }, (error, stdout) => {
-        if (error || !stdout) {
-          reject(new Error(`Failed to verify ${type} in clipboard`));
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-}
-
 export async function copyImageToClipboard(imagePath: string): Promise<void> {
   const platform = process.platform;
   const command = getClipboardImageCommand(platform, imagePath);
 
   if (command) {
     await new Promise<void>((resolve, reject) => {
-      exec(
-        command,
-        { timeout: platform === "win32" ? 2000 : 500 },
-        (error: Error | null) => {
-          if (error) {
-            toastService.showError(
-              `Failed to copy image to clipboard: ${error.message}`
-            );
-            reject(error);
-          } else {
-            resolve();
-          }
+      exec(command, { timeout: 1000 }, (error: Error | null) => {
+        if (error) {
+          toastService.showError(
+            `Failed to copy image to clipboard: ${error.message}`
+          );
+          reject(error);
+        } else {
+          resolve();
         }
-      );
+      });
     });
   }
 }
@@ -134,13 +85,11 @@ function getClipboardImageCommand(
 ): string | null {
   switch (platform) {
     case "darwin":
-      return `
-        osascript -e "set the clipboard to \"\""
-        osascript -e '
-          set imageFile to POSIX file "${imagePath}"
-          set imageData to read imageFile as «class PNGf»
-          set the clipboard to imageData
-        '`;
+      return `osascript -e '
+        set imageFile to POSIX file "${imagePath}"
+        set imageData to read imageFile as «class PNGf»
+        set the clipboard to imageData
+      '`;
     case "win32":
       return `powershell -NoProfile -Command "[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); [System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('${imagePath.replace(
         /'/g,
