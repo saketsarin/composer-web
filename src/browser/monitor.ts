@@ -158,12 +158,27 @@ export class BrowserMonitor extends EventEmitter {
   private setupEventListeners(client: puppeteer.CDPSession) {
     this.healthCheckInterval = setInterval(async () => {
       try {
-        await client.send("Runtime.evaluate", { expression: "1" });
+        // Check if page is still accessible
+        if (this.activePage?.page) {
+          await Promise.all([
+            client.send("Runtime.evaluate", { expression: "1" }),
+            this.activePage.page.evaluate(() => true),
+          ]);
+        } else {
+          throw new Error("Page not accessible");
+        }
       } catch (error) {
         this.clearHealthCheck();
         await this.handleSessionError();
       }
-    }, 5 * 60 * 1000);
+    }, 5 * 1000);
+
+    if (this.activePage?.page) {
+      this.activePage.page.on("close", () => this.handlePageClosed());
+      this.activePage.page.on("crash", () => this.handlePageClosed());
+      this.activePage.page.on("detach", () => this.handlePageClosed());
+      this.activePage.page.on("targetdestroyed", () => this.handlePageClosed());
+    }
 
     client.on("Runtime.consoleAPICalled", (e) => {
       const formattedArgs = e.args.map((arg) => {
@@ -289,10 +304,6 @@ export class BrowserMonitor extends EventEmitter {
       this.networkLogs.push(request);
       this.emit("network", request);
     });
-
-    // Listen for page close/crash events
-    this.activePage?.page.on("close", () => this.handlePageClosed());
-    this.activePage?.page.on("crash", () => this.handlePageClosed());
   }
 
   private async showSuccessNotification() {
