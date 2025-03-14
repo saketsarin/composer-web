@@ -26,6 +26,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("web-preview.sendScreenshot", () =>
       commandHandlers.handleSendScreenshot()
     ),
+    vscode.commands.registerCommand("web-preview.openKeybindingSettings", () =>
+      commandHandlers.handleOpenKeybindingSettings()
+    ),
     browserMonitor
   );
 

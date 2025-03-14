@@ -65,6 +65,28 @@
           "type": "string",
           "default": "http://localhost:9222",
           "description": "The remote debugging URL for your browser (e.g., http://localhost:9222). Ensure your browser is started with the --remote-debugging-port flag."
+        },
+        "composerWeb.customKeybindings": {
+          "type": "array",
+          "default": [],
+          "description": "Custom keybindings for Composer Web commands",
+          "items": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Command ID"
+              },
+              "key": {
+                "type": "string",
+                "description": "Keybinding for Windows/Linux"
+              },
+              "mac": {
+                "type": "string",
+                "description": "Keybinding for macOS"
+              }
+            }
+          }
         }
       }
     },
@@ -87,6 +109,11 @@
       {
         "command": "web-preview.sendScreenshot",
         "title": "Send Tab Screenshot to Composer",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.openKeybindingSettings",
+        "title": "Open Keybinding Settings",
         "category": "Composer Web"
       }
     ],
@@ -149,6 +176,10 @@
         {
           "command": "web-preview.smartCapture",
           "group": "2_capture"
+        },
+        {
+          "command": "web-preview.openKeybindingSettings",
+          "group": "3_config"
         }
       ]
     },

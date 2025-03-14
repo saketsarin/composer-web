@@ -1,6 +1,7 @@
 import { BrowserMonitor } from "../browser/monitor";
 import { ComposerIntegration } from "../composer/integration";
 import { ToastService } from "../utils/toast";
+import { KeybindingPanel } from "../views/keybinding-panel";
 
 export class CommandHandlers {
   private browserMonitor: BrowserMonitor;
@@ -144,5 +145,9 @@ export class CommandHandlers {
         this.toastService.showError(`Capture failed: ${msg}`);
       }
     }
+  }
+
+  public async handleOpenKeybindingSettings(): Promise<void> {
+    KeybindingPanel.createOrShow();
   }
 }
