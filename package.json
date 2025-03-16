@@ -188,7 +188,16 @@
         "id": "web-preview.submenu",
         "label": "Composer Web"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "composer-web",
+          "title": "Composer Web",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

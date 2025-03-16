@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <!-- Bold browser window with rounded corners -->
+    <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="2"/>
+    
+    <!-- Bold browser toolbar -->
+    <path d="M3 8H21" stroke="currentColor" stroke-width="2"/>
+    
+    <!-- Browser window controls -->
+    <circle cx="5.5" cy="5.5" r="1" fill="currentColor"/>
+    <circle cx="8.5" cy="5.5" r="1" fill="currentColor"/>
+    <circle cx="11.5" cy="5.5" r="1" fill="currentColor"/>
+    
+    <!-- Bold C/O shape in center -->
+    <ellipse cx="12" cy="13" rx="4" ry="3" stroke="currentColor" stroke-width="2"/>
+</svg> 
