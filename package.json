@@ -2,7 +2,7 @@
   "name": "composer-web",
   "displayName": "Composer Web",
   "description": "A powerful browser integration extension for Cursor that captures live browser content and logs directly into Composer",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "saketsarin",
   "icon": "assets/icon.png",
   "private": false,
@@ -65,6 +65,28 @@
           "type": "string",
           "default": "http://localhost:9222",
           "description": "The remote debugging URL for your browser (e.g., http://localhost:9222). Ensure your browser is started with the --remote-debugging-port flag."
+        },
+        "composerWeb.customKeybindings": {
+          "type": "array",
+          "default": [],
+          "description": "Custom keybindings for Composer Web commands",
+          "items": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Command ID"
+              },
+              "key": {
+                "type": "string",
+                "description": "Keybinding for Windows/Linux"
+              },
+              "mac": {
+                "type": "string",
+                "description": "Keybinding for macOS"
+              }
+            }
+          }
         }
       }
     },
@@ -88,32 +110,33 @@
         "command": "web-preview.sendScreenshot",
         "title": "Send Tab Screenshot to Composer",
         "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.openSettings",
+        "title": "Open Settings",
+        "category": "Composer Web"
       }
     ],
     "keybindings": [
       {
         "command": "web-preview.smartCapture",
         "key": "ctrl+;",
-        "mac": "cmd+;",
-        "when": "editorTextFocus"
+        "mac": "cmd+;"
       },
       {
         "command": "web-preview.clearLogs",
         "key": "ctrl+shift+;",
-        "mac": "cmd+shift+;",
-        "when": "editorFocus"
+        "mac": "cmd+shift+;"
       },
       {
         "command": "web-preview.sendLogs",
         "key": "ctrl+'",
-        "mac": "cmd+'",
-        "when": "editorFocus"
+        "mac": "cmd+'"
       },
       {
         "command": "web-preview.sendScreenshot",
         "key": "ctrl+shift+'",
-        "mac": "cmd+shift+'",
-        "when": "editorFocus"
+        "mac": "cmd+shift+'"
       }
     ],
     "menus": {
@@ -153,6 +176,10 @@
         {
           "command": "web-preview.smartCapture",
           "group": "2_capture"
+        },
+        {
+          "command": "web-preview.openSettings",
+          "group": "3_config"
         }
       ]
     },
@@ -161,7 +188,25 @@
         "id": "web-preview.submenu",
         "label": "Composer Web"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "composer-web",
+          "title": "Composer Web",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "composer-web": [
+        {
+          "id": "composer-web.settings",
+          "name": "Composer Web - Settings",
+          "type": "webview"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -22,6 +22,13 @@ export interface ExtensionConfig {
   includeStyles: boolean;
   quality: number;
   remoteDebuggingUrl: string;
+  customKeybindings?: KeybindConfig[];
+}
+
+export interface KeybindConfig {
+  command: string;
+  key: string;
+  mac: string;
 }
 
 export interface LogData {

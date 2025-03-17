@@ -3,6 +3,7 @@ import { ComposerIntegration } from "./composer/integration";
 import { BrowserMonitor } from "./browser/monitor";
 import { CommandHandlers } from "./commands";
 import { ToastService } from "./utils/toast";
+import { KeybindingPanel } from "./views/keybinding-panel";
 
 export function activate(context: vscode.ExtensionContext) {
   const composerIntegration = ComposerIntegration.getInstance(context);
@@ -12,6 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
     composerIntegration
   );
   const toastService = ToastService.getInstance();
+  const keybindingPanel = KeybindingPanel.getInstance();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("web-preview.smartCapture", () =>
@@ -25,6 +27,13 @@ export function activate(context: vscode.ExtensionContext) {
     ),
     vscode.commands.registerCommand("web-preview.sendScreenshot", () =>
       commandHandlers.handleSendScreenshot()
+    ),
+    vscode.commands.registerCommand("web-preview.openSettings", () =>
+      KeybindingPanel.show()
+    ),
+    vscode.window.registerWebviewViewProvider(
+      KeybindingPanel.viewType,
+      keybindingPanel
     ),
     browserMonitor
   );
