@@ -6,7 +6,7 @@ export function getKeybindingPanelHtml(): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keybinding Settings</title>
+    <title>Settings</title>
     <style>
         :root {
             --container-padding: 20px;
@@ -263,7 +263,7 @@ export function getKeybindingPanelHtml(): string {
     </style>
 </head>
 <body>
-    <h1>Keybinding Settings</h1>
+    <h1>Keybindings</h1>
     
     <div id="notifications-container"></div>
     

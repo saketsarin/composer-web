@@ -82,7 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart capture functionality
 - Multi-tab support
 - Chrome DevTools Protocol integration
-- Configurable settings for capture format and quality
 - Keyboard shortcuts for quick capture
 - Progress notifications during capture
 - Error handling and recovery

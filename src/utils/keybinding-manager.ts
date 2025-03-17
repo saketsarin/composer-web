@@ -13,7 +13,7 @@ export class KeybindingManager {
   private currentKeybindings: KeybindConfig[] = [];
   private customKeybindings: KeybindConfig[] = [];
 
-  public static readonly VIEW_TYPE = "composer-web.keybindSettings";
+  public static readonly VIEW_TYPE = "composer-web.settings";
 
   private constructor() {
     this.configManager = ConfigManager.getInstance();

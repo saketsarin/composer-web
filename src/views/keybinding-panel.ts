@@ -1,60 +1,67 @@
 import * as vscode from "vscode";
 import { KeybindingManager } from "../utils/keybinding-manager";
-import { WebviewManager } from "./webview-manager";
 import { getKeybindingPanelHtml } from "./templates/keybinding-panel.template";
 
-export class KeybindingPanel {
+export class KeybindingPanel implements vscode.WebviewViewProvider {
   private static instance: KeybindingPanel | undefined;
-  private readonly panel: vscode.WebviewPanel;
+  private view: vscode.WebviewView | undefined;
   private readonly keybindingManager: KeybindingManager;
-  private readonly webviewManager: WebviewManager;
   private disposables: vscode.Disposable[] = [];
 
-  private constructor(panel: vscode.WebviewPanel) {
-    this.panel = panel;
+  private constructor() {
     this.keybindingManager = KeybindingManager.getInstance();
-    this.webviewManager = WebviewManager.getInstance();
+  }
 
-    this.panel.webview.html = getKeybindingPanelHtml();
+  public static getInstance(): KeybindingPanel {
+    if (!KeybindingPanel.instance) {
+      KeybindingPanel.instance = new KeybindingPanel();
+    }
+    return KeybindingPanel.instance;
+  }
 
-    this.webviewManager.registerMessageHandler(
-      this.panel,
+  public static get viewType(): string {
+    return KeybindingManager.VIEW_TYPE;
+  }
+
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView
+  ): void | Thenable<void> {
+    this.view = webviewView;
+
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [],
+    };
+
+    webviewView.webview.html = getKeybindingPanelHtml();
+
+    webviewView.webview.onDidReceiveMessage(
       this.handleMessage.bind(this),
+      null,
       this.disposables
     );
 
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+    webviewView.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    // Load keybindings automatically
+    this.loadAndSendKeybindings();
   }
 
   private showNotification(
     type: "error" | "info" | "warning",
     message: string
   ): void {
-    this.panel.webview.postMessage({
-      command: "showNotification",
-      type,
-      message,
-    });
+    if (this.view) {
+      this.view.webview.postMessage({
+        command: "showNotification",
+        type,
+        message,
+      });
+    }
   }
 
-  public static createOrShow(): KeybindingPanel {
-    const webviewManager = WebviewManager.getInstance();
-
-    const panel = webviewManager.createOrShow(
-      KeybindingManager.VIEW_TYPE,
-      "Keybinding Settings",
-      {},
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
-    );
-
-    if (!KeybindingPanel.instance) {
-      KeybindingPanel.instance = new KeybindingPanel(panel);
-    }
-
-    return KeybindingPanel.instance;
+  public static show(): void {
+    vscode.commands.executeCommand("composer-web.settings.focus");
   }
 
   private async handleMessage(message: any): Promise<void> {
@@ -79,10 +86,12 @@ export class KeybindingPanel {
     try {
       const keybindings = await this.keybindingManager.loadKeybindings();
 
-      this.panel.webview.postMessage({
-        command: "updateKeybindings",
-        keybindings: keybindings,
-      });
+      if (this.view) {
+        this.view.webview.postMessage({
+          command: "updateKeybindings",
+          keybindings: keybindings,
+        });
+      }
     } catch (error) {
       this.showNotification("error", "Failed to load keybindings");
     }
@@ -139,10 +148,12 @@ export class KeybindingPanel {
       );
 
       // Send updated keybindings back to webview
-      this.panel.webview.postMessage({
-        command: "updateKeybindings",
-        keybindings: updatedKeybindings,
-      });
+      if (this.view) {
+        this.view.webview.postMessage({
+          command: "updateKeybindings",
+          keybindings: updatedKeybindings,
+        });
+      }
 
       this.showNotification("info", "Keybinding updated successfully");
     } catch (error) {
@@ -155,10 +166,12 @@ export class KeybindingPanel {
     try {
       const defaultKeybindings = await this.keybindingManager.resetToDefault();
 
-      this.panel.webview.postMessage({
-        command: "updateKeybindings",
-        keybindings: defaultKeybindings,
-      });
+      if (this.view) {
+        this.view.webview.postMessage({
+          command: "updateKeybindings",
+          keybindings: defaultKeybindings,
+        });
+      }
 
       this.showNotification("info", "Keybindings reset to default");
     } catch (error) {
@@ -170,9 +183,6 @@ export class KeybindingPanel {
    * Clean up resources
    */
   public dispose(): void {
-    KeybindingPanel.instance = undefined;
-
-    this.panel.dispose();
     while (this.disposables.length) {
       const x = this.disposables.pop();
       if (x) {

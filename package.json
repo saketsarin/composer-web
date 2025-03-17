@@ -112,8 +112,8 @@
         "category": "Composer Web"
       },
       {
-        "command": "web-preview.openKeybindingSettings",
-        "title": "Open Keybinding Settings",
+        "command": "web-preview.openSettings",
+        "title": "Open Settings",
         "category": "Composer Web"
       }
     ],
@@ -178,7 +178,7 @@
           "group": "2_capture"
         },
         {
-          "command": "web-preview.openKeybindingSettings",
+          "command": "web-preview.openSettings",
           "group": "3_config"
         }
       ]
@@ -195,6 +195,15 @@
           "id": "composer-web",
           "title": "Composer Web",
           "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "composer-web": [
+        {
+          "id": "composer-web.settings",
+          "name": "Composer Web - Settings",
+          "type": "webview"
         }
       ]
     }
