@@ -22,7 +22,7 @@ export function getKeybindingPanelHtml(): string {
             font-size: var(--vscode-font-size);
             font-weight: var(--vscode-font-weight);
             font-family: var(--vscode-font-family);
-            background-color: var(--vscode-editor-background);
+            background-color: var(--vscode-panel-background);
         }
 
         h1 {
