@@ -13,6 +13,7 @@ A powerful Cursor extension that captures live browser content and logs directly
 - 📊 **Real-time Monitoring**: Console logs and network requests
 - 🎯 **Multi-tab Support**: Select from any open tab in your debugging browser
 - ⚡ **Advanced Options**: Additional commands for specific capture needs
+- 🎛️ **Keybinding Management**: Customize keybindings directly from the new settings panel.
 
 ## How It Works
 
@@ -73,6 +74,7 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
    - Clear logs when starting new session
    - Use fresh Chrome profile for best results
    - Use specific commands when you need just logs or screenshots
+   - **Keybinding Panel**: Access the keybinding panel via the Command Palette to manage and customize keybindings.
 
 ## Troubleshooting
 
