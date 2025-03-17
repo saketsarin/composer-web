@@ -120,18 +120,35 @@ export function getKeybindingPanelHtml(): string {
 
         .row {
             display: flex;
-            align-items: center;
-            margin-bottom: 10px;
+            flex-direction: column;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        @media (min-width: 400px) {
+            .row {
+                flex-direction: row;
+                align-items: center;
+                margin-bottom: 10px;
+            }
         }
 
         .command-name {
-            flex: 0 0 250px;
             font-weight: 500;
             padding-right: 10px;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        @media (min-width: 400px) {
+            .command-name {
+                flex: 0 0 250px;
+                margin-bottom: 0;
+            }
         }
 
         .keybind-input {
-            flex: 1;
+            width: 100%;
             position: relative;
         }
 
@@ -143,8 +160,12 @@ export function getKeybindingPanelHtml(): string {
             border-radius: 4px;
             min-height: 18px;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
+            white-space: nowrap;
+            overflow-x: auto;
+            max-width: 100%;
+            scrollbar-width: thin;
         }
 
         .keybind-display:hover {
@@ -154,6 +175,23 @@ export function getKeybindingPanelHtml(): string {
         .keybind-display.active {
             border-color: var(--vscode-focusBorder);
             outline: 1px solid var(--vscode-focusBorder);
+        }
+
+        .keybind-display::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .keybind-display::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .keybind-display::-webkit-scrollbar-thumb {
+            background-color: var(--vscode-scrollbarSlider-background);
+            border-radius: 2px;
+        }
+
+        .keybind-display::-webkit-scrollbar-thumb:hover {
+            background-color: var(--vscode-scrollbarSlider-hoverBackground);
         }
 
         .keybind-display kbd {
@@ -168,6 +206,15 @@ export function getKeybindingPanelHtml(): string {
             line-height: 1;
             padding: 3px 5px;
             margin: 0 2px;
+            white-space: nowrap;
+        }
+
+        .keybind-display kbd:first-child {
+            margin-left: 0;
+        }
+
+        .keybind-display kbd:last-child {
+            margin-right: 0;
         }
 
         .keybind-placeholder {
@@ -189,7 +236,7 @@ export function getKeybindingPanelHtml(): string {
             padding-top: 1.5rem;
             border-top: 1px solid var(--vscode-panel-border);
             display: flex;
-            justify-content: flex-end;
+            justify-content: center;
         }
 
         .accessibility-info {
@@ -197,12 +244,16 @@ export function getKeybindingPanelHtml(): string {
             border-left: 4px solid var(--vscode-infoTextForeground, #75beff);
             padding: 10px;
             margin: 1rem 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .command-description {
             font-size: 0.85em;
             color: var(--vscode-descriptionForeground);
             margin-bottom: 10px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         /* Notification styles */
@@ -215,6 +266,10 @@ export function getKeybindingPanelHtml(): string {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .notification.error {
@@ -259,6 +314,12 @@ export function getKeybindingPanelHtml(): string {
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        #reset-btn {
+            width: 100%;
+            max-width: 200px;
+            margin: 0 auto;
         }
     </style>
 </head>
