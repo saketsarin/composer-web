@@ -229,7 +229,9 @@ export class KeybindingManager {
       const filteredKeybindings = existingKeybindings.filter(
         (kb) =>
           !kb.command?.startsWith("web-preview.") &&
-          !kb.command?.startsWith("-web-preview.")
+          !kb.command?.startsWith("-web-preview.") &&
+          !kb.command?.startsWith("composer-web.") &&
+          !kb.command?.startsWith("-composer-web.")
       );
 
       // Add our prepared keybinding entries
