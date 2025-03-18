@@ -34,8 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(
       SettingsPanel.viewType,
       settingsPanel
-    ),
-    browserMonitor
+    )
   );
 
   browserMonitor.onDisconnect(() => {

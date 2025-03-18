@@ -35,9 +35,7 @@ export class ComposerIntegration {
       return;
     }
     try {
-      await vscode.commands.executeCommand(
-        "workbench.panel.composerViewPane2.resetViewContainerLocation"
-      );
+      await vscode.commands.executeCommand("aichat.newchataction");
       this.composerOpened = true;
       await delay(100);
     } catch {
@@ -141,10 +139,6 @@ export class ComposerIntegration {
 
       await copyImageToClipboard(tmpFile);
       await delay(50);
-      await vscode.commands.executeCommand(
-        "editor.action.clipboardPasteAction"
-      );
-      await delay(50);
     } catch (error) {
       throw new Error(`Failed to send image: ${error}`);
     } finally {
@@ -162,8 +156,6 @@ export class ComposerIntegration {
     }
 
     await copyTextToClipboard(text);
-    await delay(50);
-    await vscode.commands.executeCommand("editor.action.clipboardPasteAction");
     await delay(50);
   }
 
