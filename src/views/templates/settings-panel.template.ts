@@ -1,4 +1,4 @@
-export function getKeybindingPanelHtml(): string {
+export function getSettingsPanelHtml(): string {
   const isMac = process.platform === "darwin";
 
   return `<!DOCTYPE html>

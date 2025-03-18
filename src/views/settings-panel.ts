@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import { KeybindingManager } from "../utils/keybinding-manager";
-import { getKeybindingPanelHtml } from "./templates/keybinding-panel.template";
+import { getSettingsPanelHtml } from "./templates/settings-panel.template";
 
-export class KeybindingPanel implements vscode.WebviewViewProvider {
-  private static instance: KeybindingPanel | undefined;
+export class SettingsPanel implements vscode.WebviewViewProvider {
+  private static instance: SettingsPanel | undefined;
   private view: vscode.WebviewView | undefined;
   private readonly keybindingManager: KeybindingManager;
   private disposables: vscode.Disposable[] = [];
@@ -12,11 +12,11 @@ export class KeybindingPanel implements vscode.WebviewViewProvider {
     this.keybindingManager = KeybindingManager.getInstance();
   }
 
-  public static getInstance(): KeybindingPanel {
-    if (!KeybindingPanel.instance) {
-      KeybindingPanel.instance = new KeybindingPanel();
+  public static getInstance(): SettingsPanel {
+    if (!SettingsPanel.instance) {
+      SettingsPanel.instance = new SettingsPanel();
     }
-    return KeybindingPanel.instance;
+    return SettingsPanel.instance;
   }
 
   public static get viewType(): string {
@@ -33,7 +33,7 @@ export class KeybindingPanel implements vscode.WebviewViewProvider {
       localResourceRoots: [],
     };
 
-    webviewView.webview.html = getKeybindingPanelHtml();
+    webviewView.webview.html = getSettingsPanelHtml();
 
     webviewView.webview.onDidReceiveMessage(
       this.handleMessage.bind(this),
