@@ -11,6 +11,7 @@ A powerful Cursor extension that captures live browser content and logs directly
 
 - 📸 **Smart Capture**: One shortcut to connect and capture everything
 - 📊 **Real-time Monitoring**: Console logs and network requests
+- 🔍 **Log Filtering**: Customizable filtering for console logs
 - 🎯 **Multi-tab Support**: Select from any open tab in your debugging browser
 - ⚡ **Advanced Options**: Additional commands for specific capture needs
 - 🎛️ **Keybinding Management**: Customize keybindings directly from the new settings panel.
