@@ -4,6 +4,7 @@ import { EventEmitter } from "events";
 import { BrowserLog, MonitoredPage, NetworkRequest, LogData } from "../types";
 import { ConfigManager } from "../config";
 import { ToastService } from "../utils/toast";
+import { LogFilterManager } from "../config/log-filters";
 
 export class BrowserMonitor extends EventEmitter {
   private static instance: BrowserMonitor;
@@ -18,6 +19,7 @@ export class BrowserMonitor extends EventEmitter {
   private statusBarItem: vscode.StatusBarItem;
   private isConnected: boolean = false;
   private configManager: ConfigManager;
+  private logFilterManager: LogFilterManager;
   private disconnectEmitter = new vscode.EventEmitter<void>();
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private toastService: ToastService;
@@ -30,6 +32,7 @@ export class BrowserMonitor extends EventEmitter {
     );
     this.statusBarItem.command = "web-preview.smartCapture";
     this.configManager = ConfigManager.getInstance();
+    this.logFilterManager = LogFilterManager.getInstance();
     this.toastService = ToastService.getInstance();
     this.updateStatusBar();
   }
@@ -171,7 +174,7 @@ export class BrowserMonitor extends EventEmitter {
         this.clearHealthCheck();
         await this.handleSessionError();
       }
-    }, 5 * 1000);
+    }, 5000);
 
     if (this.activePage?.page) {
       this.activePage.page.on("close", () => this.handlePageClosed());
@@ -181,15 +184,23 @@ export class BrowserMonitor extends EventEmitter {
     }
 
     client.on("Runtime.consoleAPICalled", (e) => {
-      const formattedArgs = e.args.map((arg) => {
+      const formattedArgs: string[] = [];
+
+      let trace = "";
+      if (e.stackTrace) {
+        trace = e.stackTrace.callFrames
+          .map(
+            (frame) =>
+              `    at ${frame.functionName || "(anonymous)"} (${frame.url}:${
+                frame.lineNumber + 1
+              }:${frame.columnNumber + 1})`
+          )
+          .join("\n");
+      }
+
+      for (const arg of e.args) {
         if (arg.type === "object" && arg.preview) {
-          if (arg.preview.subtype === "array") {
-            const items = arg.preview.properties
-              .map((p, index) => `${index}: ${p.value}`)
-              .join(",\n    ");
-            return `Array(${arg.preview.properties.length}) [\n    ${items}\n]`;
-          }
-          if (arg.preview.properties) {
+          if (Array.isArray(arg.preview.properties)) {
             const props = arg.preview.properties
               .map(
                 (p) =>
@@ -200,109 +211,91 @@ export class BrowserMonitor extends EventEmitter {
                   }`
               )
               .join(", ");
-            return `Object {${props}}`;
+            formattedArgs.push(`Object {${props}}`);
+          } else {
+            formattedArgs.push(arg.preview.description || "Object {}");
           }
-          return arg.preview.description || "Object {}";
         } else if (arg.type === "function") {
-          return arg.description || "function";
+          formattedArgs.push(arg.description || "function");
         } else if (arg.type === "undefined") {
-          return "undefined";
+          formattedArgs.push("undefined");
         } else if (arg.type === "string") {
-          return arg.value;
+          formattedArgs.push(arg.value);
         } else if (arg.type === "number" || arg.type === "boolean") {
-          return String(arg.value);
+          formattedArgs.push(String(arg.value));
         } else if (arg.type === "symbol") {
-          return arg.description || "Symbol()";
+          formattedArgs.push(arg.description || "Symbol()");
         } else if ("subtype" in arg && arg.subtype === "error") {
           if (arg.description && arg.description.includes("\n")) {
-            return arg.description;
+            formattedArgs.push(arg.description);
+          } else {
+            const stack =
+              arg.preview?.properties?.find((p) => p.name === "stack")?.value ||
+              "";
+            formattedArgs.push(
+              `${arg.description || "Error"}${stack ? `\n${stack}` : ""}`
+            );
           }
-          const stack =
-            arg.preview?.properties?.find((p) => p.name === "stack")?.value ||
-            "";
-          const message =
-            arg.preview?.properties?.find((p) => p.name === "message")?.value ||
-            "";
-          if (stack && message) {
-            return `Error: ${message}\n${stack}`;
-          }
-          return `${arg.description || arg.value || "Error"}`;
         } else {
-          return arg.value || arg.description || "";
-        }
-      });
-
-      // Special handling for console.table
-      if (e.type === "table") {
-        const arg = e.args[0];
-        if (arg.preview && arg.preview.properties) {
-          const values = arg.preview.properties.map((p) => p.value);
-          formattedArgs.push("\n" + values.join("\n"));
+          formattedArgs.push(String(arg));
         }
       }
 
-      // Special handling for console.trace
-      if (e.type === "trace" && e.stackTrace) {
-        const frames = Array.isArray(e.stackTrace)
-          ? e.stackTrace
-          : [e.stackTrace];
-        const trace = frames
-          .map((frame) => ({
-            functionName: frame.functionName || "(anonymous)",
-            url: frame.url || "",
-            lineNumber: frame.lineNumber || 0,
-            columnNumber: frame.columnNumber || 0,
-          }))
-          .map(
-            (frame) =>
-              `    at ${frame.functionName} (${frame.url}:${frame.lineNumber}:${frame.columnNumber})`
-          )
-          .join("\n");
-
-        if (trace) {
-          formattedArgs[0] = `Trace: ${formattedArgs[0] || "console.trace"}`;
-          formattedArgs.push(`\n${trace}`);
-        }
+      if (trace) {
+        formattedArgs[0] = `Trace: ${formattedArgs[0] || "console.trace"}`;
+        formattedArgs.push(`\n${trace}`);
       }
 
-      const log: BrowserLog = {
-        type: e.type,
-        args: formattedArgs,
-        timestamp: Date.now(),
-      };
-      this.consoleLogs.push(log);
-      this.emit("console", log);
+      // Only add the log if it passes the filter
+      if (this.logFilterManager.shouldLogConsoleMessage(e.type)) {
+        const log: BrowserLog = {
+          type: e.type,
+          args: formattedArgs,
+          timestamp: Date.now(),
+        };
+        this.consoleLogs.push(log);
+        this.emit("console", log);
+      }
     });
 
     client.on("Log.entryAdded", (e) => {
-      const log: BrowserLog = {
-        type: e.entry.level,
-        args: [e.entry.text],
-        timestamp: Date.now(),
-      };
-      this.consoleLogs.push(log);
-      this.emit("console", log);
+      // Only add the log if it passes the filter
+      if (this.logFilterManager.shouldLogConsoleMessage(e.entry.level)) {
+        const log: BrowserLog = {
+          type: e.entry.level,
+          args: [e.entry.text],
+          timestamp: Date.now(),
+        };
+        this.consoleLogs.push(log);
+        this.emit("console", log);
+      }
     });
 
     client.on("Network.responseReceived", (e) => {
-      const request: NetworkRequest = {
-        url: e.response.url,
-        status: e.response.status,
-        timestamp: Date.now(),
-      };
-      this.networkLogs.push(request);
-      this.emit("network", request);
+      // Only add the network request if it passes the filter
+      if (this.logFilterManager.shouldLogNetworkRequest(e.response.status)) {
+        const request: NetworkRequest = {
+          url: e.response.url,
+          status: e.response.status,
+          timestamp: Date.now(),
+        };
+        this.networkLogs.push(request);
+        this.emit("network", request);
+      }
     });
 
     client.on("Network.loadingFailed", (e) => {
-      const request: NetworkRequest = {
-        url: "Failed request",
-        status: 0,
-        error: e.errorText,
-        timestamp: Date.now(),
-      };
-      this.networkLogs.push(request);
-      this.emit("network", request);
+      // Failed requests are always logged if network logging is enabled
+      if (this.logFilterManager.shouldLogNetworkRequest(0)) {
+        const request: NetworkRequest = {
+          url: "Failed request",
+          status: 0,
+          error: e.errorText,
+          timestamp: Date.now(),
+        };
+        this.networkLogs.push(request);
+        this.emit("network", request);
+      }
     });
   }
 

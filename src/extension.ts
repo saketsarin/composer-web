@@ -4,6 +4,7 @@ import { BrowserMonitor } from "./browser/monitor";
 import { CommandHandlers } from "./commands";
 import { ToastService } from "./utils/toast";
 import { SettingsPanel } from "./views/settings-panel";
+import { LogFilterManager } from "./config/log-filters";
 
 export function activate(context: vscode.ExtensionContext) {
   const composerIntegration = ComposerIntegration.getInstance(context);
@@ -14,6 +15,10 @@ export function activate(context: vscode.ExtensionContext) {
   );
   const toastService = ToastService.getInstance();
   const settingsPanel = SettingsPanel.getInstance();
+  const logFilterManager = LogFilterManager.getInstance();
+
+  // Initialize managers
+  logFilterManager.initialize(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("web-preview.smartCapture", () =>

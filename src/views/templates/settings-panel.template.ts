@@ -321,12 +321,116 @@ export function getSettingsPanelHtml(): string {
             max-width: 200px;
             margin: 0 auto;
         }
+
+        /* Log Filter Styles */
+        .log-filters {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+        }
+
+        .log-filters h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-group h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1em;
+            font-weight: 400;
+            color: var(--vscode-foreground);
+        }
+
+        .filter-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-option input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .filter-option label {
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .filter-description {
+            font-size: 0.85em;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 0.25rem;
+            margin-bottom: 0.75rem;
+        }
     </style>
 </head>
 <body>
-    <h1>Keybindings</h1>
+    <h1>Settings</h1>
     
     <div id="notifications-container"></div>
+
+    <div class="log-filters">
+        <h2>Log Filtering</h2>
+        
+        <div class="filter-group">
+            <h3>Console Logs</h3>
+            <div class="filter-description">Select which console log types to collect and send</div>
+            <div class="filter-options">
+                <div class="filter-option">
+                    <input type="checkbox" id="log-info" checked>
+                    <label for="log-info">Info</label>
+                </div>
+                <div class="filter-option">
+                    <input type="checkbox" id="log-warn" checked>
+                    <label for="log-warn">Warning</label>
+                </div>
+                <div class="filter-option">
+                    <input type="checkbox" id="log-error" checked>
+                    <label for="log-error">Error</label>
+                </div>
+                <div class="filter-option">
+                    <input type="checkbox" id="log-debug" checked>
+                    <label for="log-debug">Debug</label>
+                </div>
+                <div class="filter-option">
+                    <input type="checkbox" id="log-log" checked>
+                    <label for="log-log">Log</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <h3>Network Requests</h3>
+            <div class="filter-description">Configure network request logging</div>
+            <div class="filter-options">
+                <div class="filter-option">
+                    <input type="checkbox" id="network-enabled" checked>
+                    <label for="network-enabled">Enable Network Logging</label>
+                </div>
+                <div class="filter-option">
+                    <input type="checkbox" id="network-errors-only">
+                    <label for="network-errors-only">Only Log Errors (4xx/5xx)</label>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <div class="accessibility-info">
         <p>You can use the following modifiers: ${
@@ -349,8 +453,9 @@ export function getSettingsPanelHtml(): string {
             const vscode = acquireVsCodeApi();
             const isMac = ${isMac};
             
-            // Request keybindings on load
+            // Request keybindings and settings on load
             vscode.postMessage({ command: 'getKeybindings' });
+            vscode.postMessage({ command: 'getLogFilters' });
             
             // Map from VSCode keybinding format to display format
             const keyDisplayMap = {
@@ -389,6 +494,30 @@ export function getSettingsPanelHtml(): string {
                 vscode.postMessage({ command: 'resetToDefault' });
             });
             
+            // Handle log filter changes
+            document.querySelectorAll('.filter-option input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const filters = {
+                        console: {
+                            info: document.getElementById('log-info').checked,
+                            warn: document.getElementById('log-warn').checked,
+                            error: document.getElementById('log-error').checked,
+                            debug: document.getElementById('log-debug').checked,
+                            log: document.getElementById('log-log').checked
+                        },
+                        network: {
+                            enabled: document.getElementById('network-enabled').checked,
+                            errorsOnly: document.getElementById('network-errors-only').checked
+                        }
+                    };
+                    
+                    vscode.postMessage({
+                        command: 'updateLogFilters',
+                        filters: filters
+                    });
+                });
+            });
+
             // Handle messages from the extension
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -397,6 +526,16 @@ export function getSettingsPanelHtml(): string {
                     case 'updateKeybindings':
                         keybindings = message.keybindings;
                         renderKeybindings();
+                        break;
+                    case 'updateLogFilters':
+                        const filters = message.filters;
+                        document.getElementById('log-info').checked = filters.console.info;
+                        document.getElementById('log-warn').checked = filters.console.warn;
+                        document.getElementById('log-error').checked = filters.console.error;
+                        document.getElementById('log-debug').checked = filters.console.debug;
+                        document.getElementById('log-log').checked = filters.console.log;
+                        document.getElementById('network-enabled').checked = filters.network.enabled;
+                        document.getElementById('network-errors-only').checked = filters.network.errorsOnly;
                         break;
                     case 'showNotification':
                         showNotification(message.type, message.message);

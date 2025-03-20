@@ -1,15 +1,19 @@
 import * as vscode from "vscode";
-import { KeybindingManager } from "../utils/keybinding-manager";
 import { getSettingsPanelHtml } from "./templates/settings-panel.template";
+import { KeybindingManager } from "../utils/keybinding-manager";
+import { LogFilterManager, LogFilters } from "../config/log-filters";
 
 export class SettingsPanel implements vscode.WebviewViewProvider {
+  public static readonly viewType = "composer-web.settings";
   private static instance: SettingsPanel | undefined;
   private view: vscode.WebviewView | undefined;
-  private readonly keybindingManager: KeybindingManager;
   private disposables: vscode.Disposable[] = [];
+  private keybindingManager: KeybindingManager;
+  private logFilterManager: LogFilterManager;
 
   private constructor() {
     this.keybindingManager = KeybindingManager.getInstance();
+    this.logFilterManager = LogFilterManager.getInstance();
   }
 
   public static getInstance(): SettingsPanel {
@@ -19,13 +23,11 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
     return SettingsPanel.instance;
   }
 
-  public static get viewType(): string {
-    return KeybindingManager.VIEW_TYPE;
+  public static show(): void {
+    vscode.commands.executeCommand("web-preview.settingsView.focus");
   }
 
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView
-  ): void | Thenable<void> {
+  public resolveWebviewView(webviewView: vscode.WebviewView) {
     this.view = webviewView;
 
     webviewView.webview.options = {
@@ -35,71 +37,45 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = getSettingsPanelHtml();
 
-    webviewView.webview.onDidReceiveMessage(
-      this.handleMessage.bind(this),
-      null,
-      this.disposables
+    this.disposables.push(
+      webviewView.webview.onDidReceiveMessage(async (message) => {
+        switch (message.command) {
+          case "getKeybindings":
+            const keybindings = await this.keybindingManager.loadKeybindings();
+            webviewView.webview.postMessage({
+              command: "updateKeybindings",
+              keybindings,
+            });
+            break;
+
+          case "getLogFilters":
+            const filters = this.logFilterManager.getFilters();
+            webviewView.webview.postMessage({
+              command: "updateLogFilters",
+              filters,
+            });
+            break;
+
+          case "updateKeybinding":
+            await this.updateKeybinding(
+              message.data.command,
+              message.data.key,
+              message.data.mac
+            );
+            break;
+
+          case "updateLogFilters":
+            await this.updateLogFilters(message.filters);
+            break;
+
+          case "resetToDefault":
+            await this.resetToDefault();
+            break;
+        }
+      })
     );
-
-    webviewView.onDidDispose(() => this.dispose(), null, this.disposables);
-
-    // Load keybindings automatically
-    this.loadAndSendKeybindings();
   }
 
-  private showNotification(
-    type: "error" | "info" | "warning",
-    message: string
-  ): void {
-    if (this.view) {
-      this.view.webview.postMessage({
-        command: "showNotification",
-        type,
-        message,
-      });
-    }
-  }
-
-  public static show(): void {
-    vscode.commands.executeCommand("composer-web.settings.focus");
-  }
-
-  private async handleMessage(message: any): Promise<void> {
-    switch (message.command) {
-      case "getKeybindings":
-        await this.loadAndSendKeybindings();
-        break;
-      case "updateKeybinding":
-        await this.updateKeybinding(
-          message.data.command,
-          message.data.key,
-          message.data.mac
-        );
-        break;
-      case "resetToDefault":
-        await this.resetToDefault();
-        break;
-    }
-  }
-
-  private async loadAndSendKeybindings(): Promise<void> {
-    try {
-      const keybindings = await this.keybindingManager.loadKeybindings();
-
-      if (this.view) {
-        this.view.webview.postMessage({
-          command: "updateKeybindings",
-          keybindings: keybindings,
-        });
-      }
-    } catch (error) {
-      this.showNotification("error", "Failed to load keybindings");
-    }
-  }
-
-  /**
-   * Update a keybinding
-   */
   private async updateKeybinding(
     command: string,
     key: string,
@@ -120,7 +96,7 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
         if (conflictingCommand) {
           this.showNotification(
             "warning",
-            `This keybinding is already assigned to '${conflictingCommand.command}'. Please choose a different keybinding.`
+            `This keybinding is already assigned to "${conflictingCommand.command}"`
           );
           return;
         }
@@ -135,54 +111,78 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
         if (conflictingCommand) {
           this.showNotification(
             "warning",
-            `This Mac keybinding is already assigned to '${conflictingCommand.command}'. Please choose a different keybinding.`
+            `This keybinding is already assigned to "${conflictingCommand.command}"`
           );
           return;
         }
       }
 
-      const updatedKeybindings = await this.keybindingManager.updateKeybinding(
-        command,
-        key,
-        mac
-      );
-
-      // Send updated keybindings back to webview
-      if (this.view) {
-        this.view.webview.postMessage({
-          command: "updateKeybindings",
-          keybindings: updatedKeybindings,
-        });
-      }
-
+      await this.keybindingManager.updateKeybinding(command, key, mac);
       this.showNotification("info", "Keybinding updated successfully");
     } catch (error) {
-      console.error("Failed to update keybinding:", error);
-      this.showNotification("error", "Failed to update keybinding");
+      console.error("Error updating keybinding:", error);
+      this.showNotification(
+        "error",
+        "Failed to update keybinding. Please try again."
+      );
+    }
+  }
+
+  private async updateLogFilters(filters: LogFilters): Promise<void> {
+    try {
+      await this.logFilterManager.updateFilters(filters);
+      this.showNotification("info", "Log filters updated successfully");
+    } catch (error) {
+      console.error("Error updating log filters:", error);
+      this.showNotification(
+        "error",
+        "Failed to update log filters. Please try again."
+      );
     }
   }
 
   private async resetToDefault(): Promise<void> {
     try {
-      const defaultKeybindings = await this.keybindingManager.resetToDefault();
+      await this.keybindingManager.resetToDefault();
+      await this.logFilterManager.updateFilters(
+        this.logFilterManager.getDefaultFilters()
+      );
+
+      const keybindings = await this.keybindingManager.loadKeybindings();
+      const filters = this.logFilterManager.getFilters();
 
       if (this.view) {
         this.view.webview.postMessage({
           command: "updateKeybindings",
-          keybindings: defaultKeybindings,
+          keybindings,
+        });
+        this.view.webview.postMessage({
+          command: "updateLogFilters",
+          filters,
         });
       }
 
-      this.showNotification("info", "Keybindings reset to default");
+      this.showNotification("info", "Settings reset to default");
     } catch (error) {
-      this.showNotification("error", "Failed to reset keybindings");
+      console.error("Error resetting to default:", error);
+      this.showNotification(
+        "error",
+        "Failed to reset settings. Please try again."
+      );
     }
   }
 
-  /**
-   * Clean up resources
-   */
-  public dispose(): void {
+  private showNotification(type: string, message: string): void {
+    if (this.view) {
+      this.view.webview.postMessage({
+        command: "showNotification",
+        type,
+        message,
+      });
+    }
+  }
+
+  public dispose() {
     while (this.disposables.length) {
       const x = this.disposables.pop();
       if (x) {
