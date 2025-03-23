@@ -5,13 +5,16 @@ import { CommandHandlers } from "./commands";
 import { ToastService } from "./utils/toast";
 import { SettingsPanel } from "./views/settings-panel";
 import { LogFilterManager } from "./config/log-filters";
+import { iOSSimulatorMonitor } from "./ios/simulator";
 
 export function activate(context: vscode.ExtensionContext) {
   const composerIntegration = ComposerIntegration.getInstance(context);
   const browserMonitor = BrowserMonitor.getInstance();
+  const iosMonitor = iOSSimulatorMonitor.getInstance();
   const commandHandlers = new CommandHandlers(
     browserMonitor,
-    composerIntegration
+    composerIntegration,
+    iosMonitor
   );
   const toastService = ToastService.getInstance();
   const settingsPanel = SettingsPanel.getInstance();
@@ -36,6 +39,22 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("web-preview.openSettings", () =>
       SettingsPanel.show()
     ),
+    // iOS simulator commands
+    vscode.commands.registerCommand("web-preview.connectiOSSimulator", () =>
+      commandHandlers.handleConnectiOSSimulator()
+    ),
+    vscode.commands.registerCommand("web-preview.cleariOSLogs", () =>
+      commandHandlers.handleCleariOSLogs()
+    ),
+    vscode.commands.registerCommand("web-preview.sendiOSLogs", () =>
+      commandHandlers.handleSendiOSLogs()
+    ),
+    vscode.commands.registerCommand("web-preview.sendiOSScreenshot", () =>
+      commandHandlers.handleSendiOSScreenshot()
+    ),
+    vscode.commands.registerCommand("web-preview.captureiOS", () =>
+      commandHandlers.handleCaptureiOS()
+    ),
     vscode.window.registerWebviewViewProvider(
       SettingsPanel.viewType,
       settingsPanel
@@ -44,6 +63,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   browserMonitor.onDisconnect(() => {
     toastService.showBrowserDisconnected();
+  });
+
+  iosMonitor.onDisconnect(() => {
+    toastService.showiOSSimulatorDisconnected();
   });
 }
 

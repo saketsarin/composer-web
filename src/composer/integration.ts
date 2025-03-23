@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { LogData } from "../types";
+import { LogData, iOSLogData } from "../types";
 import {
   clearClipboard,
   copyImageToClipboard,
@@ -111,6 +111,79 @@ export class ComposerIntegration {
           error instanceof Error ? error.message : String(error);
         this.toastService.showError(
           `Failed to send data to composer: ${errorMessage}`
+        );
+        throw error;
+      } finally {
+        this.composerOpened = false;
+      }
+    }
+  }
+
+  public async sendiOSToComposer(
+    screenshot?: Buffer,
+    logs?: iOSLogData
+  ): Promise<void> {
+    const maxRetries = 2;
+    let imageAttempt = 0;
+    let textAttempt = 0;
+    let imageSuccess = false;
+    let textSuccess = false;
+
+    const formattedLogs = logs ? this.formatiOSLogs(logs) : "";
+
+    while (
+      (screenshot && !imageSuccess && imageAttempt <= maxRetries) ||
+      (formattedLogs && !textSuccess && textAttempt <= maxRetries)
+    ) {
+      try {
+        await this.openComposer();
+
+        if (screenshot && !imageSuccess) {
+          await clearClipboard();
+          try {
+            await this.sendImageToComposer(screenshot);
+            await delay(50);
+            await vscode.commands.executeCommand(
+              "editor.action.clipboardPasteAction"
+            );
+            imageSuccess = true;
+          } catch (err) {
+            if (imageAttempt === maxRetries) {
+              throw new Error(`Failed to send image: ${String(err)}`);
+            }
+            imageAttempt++;
+            await delay(50);
+          }
+        }
+
+        if (formattedLogs && !textSuccess) {
+          await delay(50);
+          await clearClipboard();
+          try {
+            await this.prepareTextForComposer(formattedLogs);
+            await delay(50);
+            await vscode.commands.executeCommand(
+              "editor.action.clipboardPasteAction"
+            );
+            textSuccess = true;
+          } catch (err) {
+            if (textAttempt === maxRetries) {
+              throw new Error(`Failed to send logs: ${String(err)}`);
+            }
+            textAttempt++;
+            await delay(50);
+          }
+        }
+
+        if ((!screenshot || imageSuccess) && (!formattedLogs || textSuccess)) {
+          await this.showSuccessNotification();
+          return;
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.toastService.showError(
+          `Failed to send iOS data to composer: ${errorMessage}`
         );
         throw error;
       } finally {
@@ -234,6 +307,42 @@ export class ComposerIntegration {
         }
       });
     }
+    return result;
+  }
+
+  private formatiOSLogs(logs: iOSLogData): string {
+    let result = `---iOS Simulator Logs (${logs.device.name})---\n`;
+    result += `Device: ${logs.device.name} (${logs.device.runtime})\n`;
+    result += `UDID: ${logs.device.udid}\n\n`;
+
+    logs.logs.forEach((log) => {
+      const timestamp = new Date(log.timestamp).toLocaleTimeString();
+      let prefix = "";
+
+      switch (log.level) {
+        case "error":
+          prefix = "[ERROR]";
+          break;
+        case "warning":
+          prefix = "[WARN]";
+          break;
+        case "debug":
+          prefix = "[DEBUG]";
+          break;
+        case "info":
+        default:
+          prefix = "[INFO]";
+      }
+
+      const processInfo = log.processName
+        ? `${log.processName}${log.processId ? `[${log.processId}]` : ""}`
+        : "";
+
+      result += `[${timestamp}] ${prefix} ${
+        processInfo ? `${processInfo}: ` : ""
+      }${log.message}\n`;
+    });
+
     return result;
   }
 }

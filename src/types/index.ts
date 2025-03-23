@@ -17,6 +17,31 @@ export interface MonitoredPage {
   id: string;
 }
 
+export interface iOSSimulatorInfo {
+  name: string;
+  udid: string;
+  status: string;
+  runtime: string;
+}
+
+export interface iOSLog {
+  message: string;
+  timestamp: number;
+  level: string;
+  processId?: string;
+  processName?: string;
+}
+
+export interface iOSLogData {
+  logs: iOSLog[];
+  device: iOSSimulatorInfo;
+}
+
+export interface iOSApp {
+  name: string;
+  bundleId: string;
+}
+
 export interface ExtensionConfig {
   captureFormat: "png" | "jpg";
   includeStyles: boolean;

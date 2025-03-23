@@ -115,6 +115,31 @@
         "command": "web-preview.openSettings",
         "title": "Open Settings",
         "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.connectiOSSimulator",
+        "title": "Connect iOS Simulator",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.cleariOSLogs",
+        "title": "Clear iOS Simulator Logs",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.sendiOSLogs",
+        "title": "Send iOS Logs to Composer",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.sendiOSScreenshot",
+        "title": "Send iOS Screenshot to Composer",
+        "category": "Composer Web"
+      },
+      {
+        "command": "web-preview.captureiOS",
+        "title": "Capture iOS Simulator (Logs + Screenshot)",
+        "category": "Composer Web"
       }
     ],
     "keybindings": [
@@ -152,6 +177,22 @@
         {
           "command": "web-preview.sendScreenshot",
           "when": "web-preview:isConnected"
+        },
+        {
+          "command": "web-preview.cleariOSLogs",
+          "when": "web-preview:iOSConnected"
+        },
+        {
+          "command": "web-preview.sendiOSLogs",
+          "when": "web-preview:iOSConnected"
+        },
+        {
+          "command": "web-preview.sendiOSScreenshot",
+          "when": "web-preview:iOSConnected"
+        },
+        {
+          "command": "web-preview.captureiOS",
+          "when": "web-preview:iOSConnected"
         }
       ],
       "editor/context": [
@@ -178,8 +219,28 @@
           "group": "2_capture"
         },
         {
+          "command": "web-preview.connectiOSSimulator",
+          "group": "3_ios"
+        },
+        {
+          "command": "web-preview.cleariOSLogs",
+          "group": "3_ios"
+        },
+        {
+          "command": "web-preview.sendiOSLogs",
+          "group": "3_ios"
+        },
+        {
+          "command": "web-preview.sendiOSScreenshot",
+          "group": "3_ios"
+        },
+        {
+          "command": "web-preview.captureiOS",
+          "group": "3_ios"
+        },
+        {
           "command": "web-preview.openSettings",
-          "group": "3_config"
+          "group": "4_config"
         }
       ]
     },
