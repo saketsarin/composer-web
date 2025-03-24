@@ -115,10 +115,7 @@ function getClipboardTextCommand(
         "`\""
       )}\\""`;
     case "linux":
-      return `xclip -selection clipboard -in <<< "${text.replace(
-        /"/g,
-        "\\\""
-      )}"`;
+      return `echo "${text.replace(/"/g, "\\\"")}" | xclip -selection clipboard`;
     default:
       return null;
   }
