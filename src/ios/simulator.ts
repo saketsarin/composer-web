@@ -137,42 +137,30 @@ export class iOSSimulatorMonitor extends EventEmitter {
           const apps = await this.getInstalledApps(this.activeSimulator!.udid);
 
           if (apps.length === 0) {
-            this.toastService.showWarning(
-              "No non-system apps found on simulator"
-            );
-            this.activeAppName = null;
-            this.updateStatusBar();
+            this.toastService.showError("No apps found on simulator");
+            this.disconnect();
             return;
           }
 
           // Create quick pick items for each app
-          const appPicks = [
-            {
-              label: "$(list-filter) All Apps",
-              description: "Monitor logs from all apps",
-              app: null,
-            },
-            ...apps.map((app) => ({
-              label: app.name,
-              description: app.bundleId,
-              app,
-            })),
-          ];
+          const appPicks = apps.map((app) => ({
+            label: app.name,
+            description: app.bundleId,
+            app,
+          }));
 
           const selection = await vscode.window.showQuickPick(appPicks, {
             placeHolder: "Select an app to monitor logs",
           });
 
           if (!selection) {
-            // If user cancels, default to all apps
-            this.activeAppName = null;
-          } else if (selection.app === null) {
-            // All apps selected
-            this.activeAppName = null;
-          } else {
-            // Specific app selected
-            this.activeAppName = selection.app.name;
+            // If user cancels, disconnect
+            this.disconnect();
+            return;
           }
+
+          // Specific app selected
+          this.activeAppName = selection.app.name;
 
           // Restart log collection with new app filter
           this.clearLogs();
@@ -184,9 +172,17 @@ export class iOSSimulatorMonitor extends EventEmitter {
         }
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.toastService.showWarning(`Failed to get app list: ${errorMessage}`);
+      console.error("Error getting installed apps:", error);
+
+      // Show error to user if listapps command failed
+      if (this.toastService) {
+        this.toastService.showError(
+          "Failed to detect installed apps. Please try again or check if the simulator is running properly."
+        );
+      }
+
+      // Throw error to be handled by caller
+      throw new Error("Failed to get installed apps");
     }
   }
 
@@ -197,118 +193,69 @@ export class iOSSimulatorMonitor extends EventEmitter {
       // Get list of installed apps from the simulator
       const { stdout } = await execAsync(`xcrun simctl listapps ${udid}`);
 
-      console.log("Debug - All apps found:", stdout);
+      console.log("Debug - Raw output:", stdout);
 
-      // Parse the output
-      // Example format:
-      // com.example.app (App Name) <directory/path>
+      // Split the output into app entries
+      const appEntries = stdout.split(/(?=\s*"[^"]+"\s*=\s*{)/);
 
-      const lines = stdout.split("\n");
-      for (const line of lines) {
-        // Skip empty lines
-        if (!line.trim()) continue;
+      for (const entry of appEntries) {
+        if (!entry.trim()) continue;
 
-        // Parse app info
         try {
-          const bundleIdMatch = line.match(/^([a-zA-Z0-9\.\-_]+)/);
-          const nameMatch = line.match(/\((.*?)\)/);
+          // Extract bundle ID from the first line
+          const bundleIdMatch = entry.match(/"([^"]+)"\s*=/);
+          if (!bundleIdMatch) continue;
+          const bundleId = bundleIdMatch[1];
 
-          if (bundleIdMatch && nameMatch) {
-            const bundleId = bundleIdMatch[1];
-            const name = nameMatch[1];
+          // Check if this is a user app
+          if (!entry.includes("ApplicationType = User")) continue;
 
-            // Less aggressive filtering of system apps
-            // Only exclude very obvious system apps
-            const isSystemApp =
-              bundleId === "com.apple.mobilesafari" ||
-              bundleId === "com.apple.mobilecal" ||
-              bundleId === "com.apple.mobilephone" ||
-              bundleId === "com.apple.MobileSMS" ||
-              bundleId === "com.apple.Preferences" ||
-              // Still filter UIKit testing apps but not all UIKit apps
-              (bundleId.includes(".UIKitApplication") &&
-                !bundleId.includes("travelarrow"));
+          // Extract display name
+          let name = "";
+          const displayNameMatch = entry.match(
+            /CFBundleDisplayName\s*=\s*([^;\n]+)/
+          );
+          const bundleNameMatch = entry.match(/CFBundleName\s*=\s*([^;\n]+)/);
 
-            if (!isSystemApp) {
-              console.log(`Debug - Adding app: ${name} (${bundleId})`);
-              apps.push({
-                name: name,
-                bundleId: bundleId,
-              });
-            }
+          if (displayNameMatch) {
+            name = displayNameMatch[1].trim();
+          } else if (bundleNameMatch) {
+            name = bundleNameMatch[1].trim();
+          }
+
+          // Clean up the name (remove quotes if present)
+          name = name.replace(/^"|"$/g, "").trim();
+
+          if (name && bundleId) {
+            console.log(`Debug - Found user app: ${name} (${bundleId})`);
+            apps.push({ name, bundleId });
           }
         } catch (parseError) {
-          console.error("Error parsing app info:", parseError);
+          console.error("Error parsing app entry:", parseError);
+          continue;
         }
       }
 
-      console.log(`Debug - Found ${apps.length} non-system apps`);
+      console.log(`Debug - Found ${apps.length} user-installed apps`);
 
-      // Special case: If TravelArrow is in simulator but not detected, add it manually
       if (apps.length === 0) {
-        // Check if stdout contains any mention of TravelArrow
-        if (stdout.toLowerCase().includes("travelarrow")) {
-          console.log("Debug - Manually adding TravelArrow app");
-          // Extract the actual bundle ID and name if possible
-          const travelArrowLine = lines.find((line) =>
-            line.toLowerCase().includes("travelarrow")
-          );
-
-          if (travelArrowLine) {
-            const bundleIdMatch = travelArrowLine.match(/^([a-zA-Z0-9\.\-_]+)/);
-            const nameMatch = travelArrowLine.match(/\((.*?)\)/);
-
-            const bundleId = bundleIdMatch
-              ? bundleIdMatch[1]
-              : "com.example.travelarrow";
-            const name = nameMatch ? nameMatch[1] : "TravelArrow";
-
-            apps.push({
-              name: name,
-              bundleId: bundleId,
-            });
-          } else {
-            // Fallback to generic values
-            apps.push({
-              name: "TravelArrow",
-              bundleId: "com.example.travelarrow",
-            });
-          }
-        }
+        throw new Error("No user-installed apps found in simulator");
       }
+
+      return apps;
     } catch (error) {
       console.error("Error getting installed apps:", error);
 
-      // Special case: if listapps command failed, provide a manual fallback
-      // This is useful for older Xcode versions that might not support listapps
+      // Show error to user if listapps command failed
       if (this.toastService) {
-        this.toastService.showWarning(
-          "App detection failed, showing fallback options"
+        this.toastService.showError(
+          "Failed to detect installed apps. Please try again or check if the simulator is running properly."
         );
       }
 
-      // Add TravelArrow as a fallback option
-      apps.push({
-        name: "TravelArrow",
-        bundleId: "com.example.travelarrow",
-      });
-
-      // Add a few common development app names as fallbacks
-      apps.push({
-        name: "React Native App",
-        bundleId: "org.reactjs.native.example",
-      });
-
-      apps.push({
-        name: "Flutter App",
-        bundleId: "com.example.flutterApp",
-      });
-
-      // Don't throw an error, instead return the fallback options
-      return apps;
+      // Throw error to be handled by caller
+      throw new Error("Failed to get installed apps");
     }
-
-    return apps;
   }
 
   private async monitorSimulator(simulator: iOSSimulatorInfo) {
@@ -378,12 +325,6 @@ export class iOSSimulatorMonitor extends EventEmitter {
         // Format the log with a simple timestamp
         const timestamp = new Date().toLocaleTimeString();
         let formattedLog = `[${timestamp}] ${line.trim()}`;
-
-        // Extract the important part if it's a SwiftUI lifecycle event
-        if (line.includes("View is about to appear")) {
-          formattedLog = `[${timestamp}] View is about to appear!`;
-          console.log("Found View is about to appear message!");
-        }
 
         // Add to logs
         this.processSimpleLog(formattedLog);
