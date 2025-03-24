@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { getSettingsPanelHtml } from "./templates/settings-panel.template";
-import { KeybindingManager } from "../utils/keybinding-manager";
-import { LogFilterManager, LogFilters } from "../config/log-filters";
+import { KeybindingManager } from "../shared/utils/keybinding-manager";
+import { LogFilterManager, LogFilters } from "../shared/config/log-filters";
 
 export class SettingsPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "composer-web.settings";
@@ -24,7 +24,7 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
   }
 
   public static show(): void {
-    vscode.commands.executeCommand("web-preview.settingsView.focus");
+    vscode.commands.executeCommand("workbench.view.extension.composer-web");
   }
 
   public resolveWebviewView(webviewView: vscode.WebviewView) {

@@ -1,10 +1,15 @@
 import * as vscode from "vscode";
 import * as puppeteer from "puppeteer-core";
 import { EventEmitter } from "events";
-import { BrowserLog, MonitoredPage, NetworkRequest, LogData } from "../types";
-import { ConfigManager } from "../config";
-import { ToastService } from "../utils/toast";
-import { LogFilterManager } from "../config/log-filters";
+import {
+  BrowserLog,
+  MonitoredPage,
+  NetworkRequest,
+  LogData,
+} from "../shared/types";
+import { ConfigManager } from "../shared/config";
+import { ToastService } from "../shared/utils/toast";
+import { LogFilterManager } from "../shared/config/log-filters";
 
 export class BrowserMonitor extends EventEmitter {
   private static instance: BrowserMonitor;
@@ -252,6 +257,7 @@ export class BrowserMonitor extends EventEmitter {
           type: e.type,
           args: formattedArgs,
           timestamp: Date.now(),
+          message: formattedArgs.join(" "),
         };
         this.consoleLogs.push(log);
         this.emit("console", log);
@@ -265,6 +271,7 @@ export class BrowserMonitor extends EventEmitter {
           type: e.entry.level,
           args: [e.entry.text],
           timestamp: Date.now(),
+          message: e.entry.text,
         };
         this.consoleLogs.push(log);
         this.emit("console", log);
@@ -278,6 +285,7 @@ export class BrowserMonitor extends EventEmitter {
           url: e.response.url,
           status: e.response.status,
           timestamp: Date.now(),
+          method: e.type || "GET",
         };
         this.networkLogs.push(request);
         this.emit("network", request);
@@ -292,6 +300,7 @@ export class BrowserMonitor extends EventEmitter {
           status: 0,
           error: e.errorText,
           timestamp: Date.now(),
+          method: e.type || "UNKNOWN",
         };
         this.networkLogs.push(request);
         this.emit("network", request);

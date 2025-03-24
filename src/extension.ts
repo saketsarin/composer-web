@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { ComposerIntegration } from "./composer/integration";
+import { ComposerIntegration } from "./shared/composer/integration";
 import { BrowserMonitor } from "./browser/monitor";
 import { CommandHandlers } from "./commands";
-import { ToastService } from "./utils/toast";
+import { ToastService } from "./shared/utils/toast";
 import { SettingsPanel } from "./views/settings-panel";
-import { LogFilterManager } from "./config/log-filters";
+import { LogFilterManager } from "./shared/config/log-filters";
 import { iOSSimulatorMonitor } from "./ios/simulator";
 
 export function activate(context: vscode.ExtensionContext) {

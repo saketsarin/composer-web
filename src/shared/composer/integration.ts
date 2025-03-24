@@ -1,7 +1,15 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { LogData, iOSLogData } from "../types";
+import {
+  LogData,
+  iOSLogData,
+  BrowserLog,
+  NetworkRequest,
+  Exception,
+  DOMEvent,
+  iOSLog,
+} from "../types";
 import {
   clearClipboard,
   copyImageToClipboard,
@@ -193,7 +201,7 @@ export class ComposerIntegration {
   }
 
   private async sendImageToComposer(screenshot: Buffer): Promise<void> {
-    const manifest = require("../../package.json");
+    const manifest = require("../../../package.json");
     const extensionId = `${manifest.publisher}.${manifest.name}`;
     const tmpDir = this.context.globalStorageUri.fsPath;
     let tmpFile: string | undefined;
@@ -243,104 +251,84 @@ export class ComposerIntegration {
 
   private formatLogs(logs: LogData): string {
     let result = "---Console Logs---\n";
-    logs.console.forEach((log) => {
+    logs.console.forEach((log: BrowserLog) => {
       const timestamp = new Date(log.timestamp).toLocaleTimeString();
       let prefix = "";
 
       switch (log.type) {
-        case "warning":
-          prefix = "[WARN]";
-          break;
         case "error":
-          prefix = "[ERROR]";
+          prefix = "ERROR";
           break;
-        case "info":
-          prefix = "[INFO]";
+        case "warning":
+          prefix = "WARN";
           break;
         case "debug":
-          prefix = "[DEBUG]";
+          prefix = "DEBUG";
           break;
-        case "log":
+        case "info":
+          prefix = "INFO";
+          break;
         default:
-          prefix = "[LOG]";
+          prefix = "LOG";
       }
 
-      const formattedArgs = log.args
-        .map((arg) => {
-          if (!arg) return "";
-
-          if (arg.includes("%c")) {
-            const parts = arg.split("%c");
-            if (parts.length >= 2) {
-              const text = parts[0] || "";
-              const style = parts[1] || "";
-              return (
-                text.trim() +
-                (text.trim() && style ? ` ${style.trim()}` : style.trim())
-              );
-            }
-            return arg;
-          }
-
-          return arg;
-        })
-        .filter(Boolean)
-        .join(" ");
-
-      result += `[${timestamp}] ${prefix} ${formattedArgs}\n`;
+      result += `${timestamp} [${prefix}] ${log.message}\n`;
     });
 
-    if (logs.network.length > 0) {
+    if (logs.network && logs.network.length > 0) {
       result += "\n---Network Requests---\n";
-      logs.network.forEach((log) => {
-        const timestamp = new Date(log.timestamp).toLocaleTimeString();
-        const formattedLog = {
-          url: log.url,
-          status: log.status,
-          ...(log.error && { error: log.error }),
-        };
-        if (formattedLog.error) {
-          result += `[${timestamp}] [FAILED] ${formattedLog.url} (${formattedLog.error})\n`;
-        } else {
-          const statusPrefix = formattedLog.status >= 400 ? "[ERROR]" : "[OK]";
-          result += `[${timestamp}] ${statusPrefix} ${formattedLog.status}: ${formattedLog.url}\n`;
-        }
+      logs.network.forEach((req: NetworkRequest) => {
+        const timestamp = new Date(req.timestamp).toLocaleTimeString();
+        const duration = req.duration ? `${req.duration}ms` : "pending";
+        const status = req.status ? `${req.status}` : "N/A";
+        result += `${timestamp} [${req.method}] ${req.url} - Status: ${status}, Duration: ${duration}\n`;
       });
     }
+
+    if (logs.exceptions && logs.exceptions.length > 0) {
+      result += "\n---Exceptions---\n";
+      logs.exceptions.forEach((ex: Exception) => {
+        const timestamp = new Date(ex.timestamp).toLocaleTimeString();
+        result += `${timestamp} - ${ex.message}\n${ex.stack || ""}\n`;
+      });
+    }
+
+    if (logs.domEvents && logs.domEvents.length > 0) {
+      result += "\n---DOM Events---\n";
+      logs.domEvents.forEach((event: DOMEvent) => {
+        const timestamp = new Date(event.timestamp).toLocaleTimeString();
+        result += `${timestamp} - [${event.type}] ${event.target}\n`;
+      });
+    }
+
     return result;
   }
 
   private formatiOSLogs(logs: iOSLogData): string {
-    let result = `---iOS Simulator Logs (${logs.device.name})---\n`;
-    result += `Device: ${logs.device.name} (${logs.device.runtime})\n`;
-    result += `UDID: ${logs.device.udid}\n\n`;
+    let result = "---iOS Simulator Logs---\n";
 
-    logs.logs.forEach((log) => {
+    logs.logEntries.forEach((log: iOSLog) => {
       const timestamp = new Date(log.timestamp).toLocaleTimeString();
       let prefix = "";
 
       switch (log.level) {
-        case "error":
-          prefix = "[ERROR]";
+        case "Error":
+          prefix = "ERROR";
           break;
-        case "warning":
-          prefix = "[WARN]";
+        case "Warning":
+          prefix = "WARN";
           break;
-        case "debug":
-          prefix = "[DEBUG]";
+        case "Debug":
+          prefix = "DEBUG";
           break;
-        case "info":
+        case "Info":
+          prefix = "INFO";
+          break;
         default:
-          prefix = "[INFO]";
+          prefix = "LOG";
       }
 
-      const processInfo = log.processName
-        ? `${log.processName}${log.processId ? `[${log.processId}]` : ""}`
-        : "";
-
-      result += `[${timestamp}] ${prefix} ${
-        processInfo ? `${processInfo}: ` : ""
-      }${log.message}\n`;
+      result += `${timestamp} [${prefix}] ${log.message}\n`;
     });
 
     return result;

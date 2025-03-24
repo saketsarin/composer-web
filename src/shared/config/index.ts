@@ -16,11 +16,14 @@ export class ConfigManager {
     return ConfigManager.instance;
   }
 
-  public get<T>(key: keyof ExtensionConfig): T {
+  public get<T>(key: string & keyof ExtensionConfig): T {
     return this.config.get(key) as T;
   }
 
-  public async update<T>(key: keyof ExtensionConfig, value: T): Promise<void> {
+  public async update<T>(
+    key: string & keyof ExtensionConfig,
+    value: T
+  ): Promise<void> {
     await this.config.update(key, value, vscode.ConfigurationTarget.Global);
   }
 }

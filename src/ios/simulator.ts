@@ -5,8 +5,8 @@ import { promisify } from "util";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
-import { iOSApp, iOSLog, iOSLogData, iOSSimulatorInfo } from "../types";
-import { ToastService } from "../utils/toast";
+import { iOSApp, iOSLog, iOSLogData, iOSSimulatorInfo } from "../shared/types";
+import { ToastService } from "../shared/utils/toast";
 
 const execAsync = promisify(exec);
 
@@ -344,10 +344,10 @@ export class iOSSimulatorMonitor extends EventEmitter {
   private getLogPredicate(): string {
     if (this.activeAppName) {
       // Use simpler, more reliable predicate syntax
-      return `processImagePath ENDSWITH "${this.activeAppName}" AND category == "App"`;
+      return `subsystem contains '${this.activeAppName}' OR eventMessage contains 'print'`;
     } else {
       // Default predicate for all app logs with simpler syntax
-      return "category == \"App\"";
+      return "category == \"App\" OR eventMessage contains 'print'";
     }
   }
 
@@ -363,7 +363,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
       "log",
       "stream",
       "--predicate",
-      "eventMessage contains 'View is about to appear' OR subsystem contains 'TravelArrow' OR eventMessage contains 'print'",
+      this.getLogPredicate(),
       "--style",
       "compact",
     ]);
@@ -470,7 +470,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
     }
 
     return {
-      logs: this.logs.slice(-LOG_CHUNK_SIZE), // Return only a limited number of logs
+      logEntries: this.logs.slice(-LOG_CHUNK_SIZE), // Return only a limited number of logs
       device: this.activeSimulator!,
     };
   }
