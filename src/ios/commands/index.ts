@@ -36,10 +36,7 @@ export class iOSCommandHandlers {
         "Capturing iOS Screenshot",
         async () => {
           const screenshot = await this.iOSSimulatorMonitor.captureScreenshot();
-          await this.composerIntegration.sendiOSToComposer(
-            screenshot,
-            undefined
-          );
+          await this.composerIntegration.sendiOSToComposer(screenshot);
         }
       );
       this.toastService.showInfo("iOS screenshot sent successfully");
@@ -60,10 +57,7 @@ export class iOSCommandHandlers {
         "Capturing iOS Screenshot",
         async () => {
           const screenshot = await this.iOSSimulatorMonitor.captureScreenshot();
-          await this.composerIntegration.sendiOSToComposer(
-            screenshot,
-            undefined
-          );
+          await this.composerIntegration.sendiOSToComposer(screenshot);
         }
       );
       this.toastService.showInfo("iOS screenshot captured successfully");
