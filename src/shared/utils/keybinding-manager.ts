@@ -250,24 +250,17 @@ export class KeybindingManager {
         "workbench.action.closeActiveEditor"
       );
     } catch (error) {
-      console.error("Failed to apply keybindings:", error);
+      console.error("Failed to apply keybindings to VS Code:", error);
       throw error;
     }
   }
 
-  /**
-   * Get package.json content
-   */
   private async getPackageJson(): Promise<any> {
-    const packageJsonUri = vscode.Uri.joinPath(
-      vscode.extensions.getExtension("saketsarin.composer-web")!.extensionUri,
-      "package.json"
-    );
-
-    const packageJsonBuffer = await vscode.workspace.fs.readFile(
-      packageJsonUri
-    );
-    const packageJsonContent = packageJsonBuffer.toString();
-    return JSON.parse(packageJsonContent);
+    try {
+      return require("../../../package.json");
+    } catch (error) {
+      console.error("Failed to load package.json:", error);
+      throw error;
+    }
   }
 }

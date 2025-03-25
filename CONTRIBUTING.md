@@ -57,7 +57,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ```bash
 # Clone your fork
-git clone https://github.com/your-username/composer-web.git
+git clone https://github.com/saketsarin/composer-web.git
 
 # Install dependencies
 npm install

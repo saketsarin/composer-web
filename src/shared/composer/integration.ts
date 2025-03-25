@@ -1,7 +1,13 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { LogData } from "../types";
+import {
+  LogData,
+  BrowserLog,
+  NetworkRequest,
+  Exception,
+  DOMEvent,
+} from "../types";
 import {
   clearClipboard,
   copyImageToClipboard,
@@ -119,8 +125,55 @@ export class ComposerIntegration {
     }
   }
 
+  public async sendiOSToComposer(
+    screenshot?: Buffer,
+    logs?: undefined
+  ): Promise<void> {
+    const maxRetries = 2;
+    let imageAttempt = 0;
+    let imageSuccess = false;
+
+    while (screenshot && !imageSuccess && imageAttempt <= maxRetries) {
+      try {
+        await this.openComposer();
+
+        if (screenshot && !imageSuccess) {
+          await clearClipboard();
+          try {
+            await this.sendImageToComposer(screenshot);
+            await delay(50);
+            await vscode.commands.executeCommand(
+              "editor.action.clipboardPasteAction"
+            );
+            imageSuccess = true;
+          } catch (err) {
+            if (imageAttempt === maxRetries) {
+              throw new Error(`Failed to send image: ${String(err)}`);
+            }
+            imageAttempt++;
+            await delay(50);
+          }
+        }
+
+        if (!screenshot || imageSuccess) {
+          await this.showSuccessNotification();
+          return;
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.toastService.showError(
+          `Failed to send iOS data to composer: ${errorMessage}`
+        );
+        throw error;
+      } finally {
+        this.composerOpened = false;
+      }
+    }
+  }
+
   private async sendImageToComposer(screenshot: Buffer): Promise<void> {
-    const manifest = require("../../package.json");
+    const manifest = require("../../../package.json");
     const extensionId = `${manifest.publisher}.${manifest.name}`;
     const tmpDir = this.context.globalStorageUri.fsPath;
     let tmpFile: string | undefined;
@@ -170,70 +223,56 @@ export class ComposerIntegration {
 
   private formatLogs(logs: LogData): string {
     let result = "---Console Logs---\n";
-    logs.console.forEach((log) => {
+    logs.console.forEach((log: BrowserLog) => {
       const timestamp = new Date(log.timestamp).toLocaleTimeString();
       let prefix = "";
 
       switch (log.type) {
-        case "warning":
-          prefix = "[WARN]";
-          break;
         case "error":
-          prefix = "[ERROR]";
+          prefix = "ERROR";
           break;
-        case "info":
-          prefix = "[INFO]";
+        case "warning":
+          prefix = "WARN";
           break;
         case "debug":
-          prefix = "[DEBUG]";
+          prefix = "DEBUG";
           break;
-        case "log":
+        case "info":
+          prefix = "INFO";
+          break;
         default:
-          prefix = "[LOG]";
+          prefix = "LOG";
       }
 
-      const formattedArgs = log.args
-        .map((arg) => {
-          if (!arg) return "";
-
-          if (arg.includes("%c")) {
-            const parts = arg.split("%c");
-            if (parts.length >= 2) {
-              const text = parts[0] || "";
-              const style = parts[1] || "";
-              return (
-                text.trim() +
-                (text.trim() && style ? ` ${style.trim()}` : style.trim())
-              );
-            }
-            return arg;
-          }
-
-          return arg;
-        })
-        .filter(Boolean)
-        .join(" ");
-
-      result += `[${timestamp}] ${prefix} ${formattedArgs}\n`;
+      result += `${timestamp} [${prefix}] ${log.message}\n`;
     });
 
-    if (logs.network.length > 0) {
+    if (logs.network && logs.network.length > 0) {
       result += "\n---Network Requests---\n";
-      logs.network.forEach((log) => {
-        const timestamp = new Date(log.timestamp).toLocaleTimeString();
-        const formattedLog = {
-          url: log.url,
-          status: log.status,
-          ...(log.error && { error: log.error }),
-        };
-        if (formattedLog.error) {
-          result += `[${timestamp}] [FAILED] ${formattedLog.url} (${formattedLog.error})\n`;
-        } else {
-          const statusPrefix = formattedLog.status >= 400 ? "[ERROR]" : "[OK]";
-          result += `[${timestamp}] ${statusPrefix} ${formattedLog.status}: ${formattedLog.url}\n`;
-        }
+      logs.network.forEach((req: NetworkRequest) => {
+        const timestamp = new Date(req.timestamp).toLocaleTimeString();
+        const duration = req.duration ? `${req.duration}ms` : "pending";
+        const status = req.status ? `${req.status}` : "N/A";
+        result += `${timestamp} [${req.method}] ${req.url} - Status: ${status}, Duration: ${duration}\n`;
       });
     }
+
+    if (logs.exceptions && logs.exceptions.length > 0) {
+      result += "\n---Exceptions---\n";
+      logs.exceptions.forEach((ex: Exception) => {
+        const timestamp = new Date(ex.timestamp).toLocaleTimeString();
+        result += `${timestamp} - ${ex.message}\n${ex.stack || ""}\n`;
+      });
+    }
+
+    if (logs.domEvents && logs.domEvents.length > 0) {
+      result += "\n---DOM Events---\n";
+      logs.domEvents.forEach((event: DOMEvent) => {
+        const timestamp = new Date(event.timestamp).toLocaleTimeString();
+        result += `${timestamp} - [${event.type}] ${event.target}\n`;
+      });
+    }
+
     return result;
   }
 }

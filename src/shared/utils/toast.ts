@@ -58,6 +58,10 @@ export class ToastService {
     this.showWarning("Browser tab disconnected");
   }
 
+  public showiOSSimulatorDisconnected() {
+    this.showWarning("iOS simulator disconnected");
+  }
+
   public showNoTabConnected() {
     this.showError("No browser tab connected. Please connect a tab first.");
   }

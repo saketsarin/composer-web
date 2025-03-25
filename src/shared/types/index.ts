@@ -2,6 +2,7 @@ export interface BrowserLog {
   type: string;
   args: string[];
   timestamp: number;
+  message: string;
 }
 
 export interface NetworkRequest {
@@ -9,12 +10,38 @@ export interface NetworkRequest {
   status: number;
   error?: string;
   timestamp: number;
+  method: string;
+  duration?: number;
+}
+
+export interface DOMEvent {
+  type: string;
+  target: string;
+  timestamp: number;
+}
+
+export interface Exception {
+  message: string;
+  stack?: string;
+  timestamp: number;
 }
 
 export interface MonitoredPage {
   title: string;
   url: string;
   id: string;
+}
+
+export interface iOSSimulatorInfo {
+  name: string;
+  udid: string;
+  status: string;
+  runtime: string;
+}
+
+export interface iOSApp {
+  name: string;
+  bundleId: string;
 }
 
 export interface ExtensionConfig {
@@ -34,4 +61,6 @@ export interface KeybindConfig {
 export interface LogData {
   console: BrowserLog[];
   network: NetworkRequest[];
+  exceptions?: Exception[];
+  domEvents?: DOMEvent[];
 }

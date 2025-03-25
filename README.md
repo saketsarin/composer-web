@@ -13,6 +13,7 @@ A powerful Cursor extension that captures live browser content and logs directly
 - 📊 **Real-time Monitoring**: Console logs and network requests
 - 🔍 **Log Filtering**: Customizable filtering for console logs
 - 🎯 **Multi-tab Support**: Select from any open tab in your debugging browser
+- 📱 **iOS Simulator Integration** (Beta): Capture iOS simulator screenshots
 - ⚡ **Advanced Options**: Additional commands for specific capture needs
 - 🎛️ **Keybinding Management**: Customize keybindings directly from the new settings panel.
 
@@ -31,12 +32,19 @@ A powerful Cursor extension that captures live browser content and logs directly
    - Logs persist until you clear them or disconnect
 
 3. **Capture State**:
+
    - Press `Cmd/Ctrl + ;` again or click the capture button
    - The extension captures everything:
      - A full-page screenshot
      - All console logs since connection
      - All network requests since connection
    - Everything is sent directly to Composer
+
+4. **iOS Simulator Integration** (Beta):
+   - Enable in Settings Panel under "Beta Features"
+   - Connect to a running iOS simulator
+   - Capture screenshots from iOS apps
+   - Send directly to Composer for AI assistance
 
 ## Quick Start
 
@@ -62,6 +70,7 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
 - Clear logs: `Cmd/Ctrl + Shift + ;`
 - Send only logs: `Cmd/Ctrl + '`
 - Send only screenshot: `Cmd/Ctrl + Shift + '`
+- iOS Simulator: Available in command palette when enabled
 
 ## Usage Tips
 
@@ -69,6 +78,7 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
 
    - 🔌 Not Connected: Click to connect to a tab
    - 👁️ Connected: Click to capture current tab state
+   - 📱 iOS Simulator: Shows connected simulator status
 
 2. **Best Practices**:
    - Wait for page to load completely
@@ -76,6 +86,7 @@ Available through Command Palette (`Cmd/Ctrl + Shift + P`) or keyboard shortcuts
    - Use fresh Chrome profile for best results
    - Use specific commands when you need just logs or screenshots
    - **Keybinding Panel**: Access the keybinding panel via the Command Palette to manage and customize keybindings.
+   - **Beta Features**: Enable beta features like iOS simulator integration in the Settings Panel
 
 ## Troubleshooting
 
