@@ -125,10 +125,7 @@ export class ComposerIntegration {
     }
   }
 
-  public async sendiOSToComposer(
-    screenshot?: Buffer,
-    logs?: undefined
-  ): Promise<void> {
+  public async sendiOSToComposer(screenshot?: Buffer): Promise<void> {
     const maxRetries = 2;
     let imageAttempt = 0;
     let imageSuccess = false;
