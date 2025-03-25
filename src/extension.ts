@@ -43,12 +43,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("web-preview.connectiOSSimulator", () =>
       commandHandlers.handleConnectiOSSimulator()
     ),
-    vscode.commands.registerCommand("web-preview.cleariOSLogs", () =>
-      commandHandlers.handleCleariOSLogs()
-    ),
-    vscode.commands.registerCommand("web-preview.sendiOSLogs", () =>
-      commandHandlers.handleSendiOSLogs()
-    ),
     vscode.commands.registerCommand("web-preview.sendiOSScreenshot", () =>
       commandHandlers.handleSendiOSScreenshot()
     ),

@@ -5,23 +5,17 @@ import { promisify } from "util";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
-import { iOSApp, iOSLog, iOSLogData, iOSSimulatorInfo } from "../shared/types";
+import { iOSApp, iOSSimulatorInfo } from "../shared/types";
 import { ToastService } from "../shared/utils/toast";
 
 const execAsync = promisify(exec);
 
-// Constants
-const MAX_LOG_ENTRIES = 1000; // Limit number of logs to prevent E2BIG
-const LOG_CHUNK_SIZE = 200; // Send logs in chunks of this size
-
 export class iOSSimulatorMonitor extends EventEmitter {
   private static instance: iOSSimulatorMonitor;
   private activeSimulator: iOSSimulatorInfo | null = null;
-  private logs: iOSLog[] = [];
   private statusBarItem: vscode.StatusBarItem;
   private isConnected: boolean = false;
   private toastService: ToastService;
-  private logProcess: ReturnType<typeof spawn> | null = null;
   private disconnectEmitter = new vscode.EventEmitter<void>();
   private activeAppName: string | null = null;
 
@@ -161,10 +155,6 @@ export class iOSSimulatorMonitor extends EventEmitter {
 
           // Specific app selected
           this.activeAppName = selection.app.name;
-
-          // Restart log collection with new app filter
-          this.clearLogs();
-          this.startLogCollection(this.activeSimulator!.udid);
           this.updateStatusBar();
 
           // Show success notification
@@ -276,7 +266,6 @@ export class iOSSimulatorMonitor extends EventEmitter {
 
     this.activeSimulator = simulator;
     this.isConnected = true;
-    this.clearLogs();
     this.updateStatusBar();
   }
 
@@ -288,98 +277,11 @@ export class iOSSimulatorMonitor extends EventEmitter {
     this.toastService.showInfo(message);
   }
 
-  private getLogPredicate(): string {
-    if (this.activeAppName) {
-      // Use simpler, more reliable predicate syntax
-      return `subsystem contains '${this.activeAppName}' OR eventMessage contains 'print'`;
-    } else {
-      // Default predicate for all app logs with simpler syntax
-      return "category == \"App\" OR eventMessage contains 'print'";
-    }
-  }
-
-  private startLogCollection(udid: string) {
-    // Stop any existing log process
-    this.stopLogCollection();
-
-    // Very simple approach to directly target SwiftUI lifecycle events and app console output
-    this.logProcess = spawn("xcrun", [
-      "simctl",
-      "spawn",
-      udid,
-      "log",
-      "stream",
-      "--predicate",
-      this.getLogPredicate(),
-      "--style",
-      "compact",
-    ]);
-
-    this.logProcess.stdout?.on("data", (data) => {
-      const content = data.toString();
-      const lines = content.split("\n");
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-
-        // Format the log with a simple timestamp
-        const timestamp = new Date().toLocaleTimeString();
-        let formattedLog = `[${timestamp}] ${line.trim()}`;
-
-        // Add to logs
-        this.processSimpleLog(formattedLog);
-      }
-    });
-
-    this.logProcess.stderr?.on("data", (data) => {
-      console.error(`simctl log error: ${data}`);
-    });
-
-    this.logProcess.on("close", (code) => {
-      if (code !== 0 && this.isConnected) {
-        this.toastService.showWarning(
-          `Log collection stopped with code ${code}`
-        );
-        this.disconnect();
-      }
-    });
-  }
-
-  private processSimpleLog(line: string): void {
-    const timestamp = new Date().getTime();
-    const log: iOSLog = {
-      message: line,
-      timestamp,
-      level: "info",
-      processId: undefined,
-      processName: this.activeAppName || undefined,
-    };
-
-    this.logs.push(log);
-
-    // Trim logs when they get too large to prevent E2BIG errors
-    if (this.logs.length > MAX_LOG_ENTRIES) {
-      this.logs = this.logs.slice(-MAX_LOG_ENTRIES);
-    }
-  }
-
-  private stopLogCollection() {
-    if (this.logProcess) {
-      this.logProcess.kill();
-      this.logProcess = null;
-    }
-  }
-
   private async stopMonitoring() {
-    this.stopLogCollection();
     this.isConnected = false;
     this.activeSimulator = null;
     this.activeAppName = null;
     this.updateStatusBar();
-  }
-
-  public clearLogs(): void {
-    this.logs = [];
   }
 
   public onDisconnect(listener: () => void): vscode.Disposable {
@@ -395,33 +297,11 @@ export class iOSSimulatorMonitor extends EventEmitter {
     return this.activeSimulator;
   }
 
-  public getLogs(): iOSLogData {
-    // If we don't have any logs yet, provide a helpful message
-    if (this.logs.length === 0) {
-      const timestamp = new Date().getTime();
-      this.logs.push({
-        message: `No console logs found for ${
-          this.activeAppName || "any apps"
-        }. If your app is not producing logs, try using console.log(), NSLog(), or print() statements in your code.`,
-        timestamp,
-        level: "info",
-        processId: "0",
-        processName: "Composer",
-      });
-    }
-
-    return {
-      logEntries: this.logs.slice(-LOG_CHUNK_SIZE), // Return only a limited number of logs
-      device: this.activeSimulator!,
-    };
-  }
-
   public isSimulatorConnected(): boolean {
     return this.isConnected && this.activeSimulator !== null;
   }
 
   public dispose() {
-    this.stopLogCollection();
     this.statusBarItem.dispose();
   }
 

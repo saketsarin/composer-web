@@ -45,14 +45,6 @@ export class CommandHandlers {
     return this.iOSCommandHandlers.handleConnectiOSSimulator();
   }
 
-  public async handleCleariOSLogs(): Promise<void> {
-    return this.iOSCommandHandlers.handleCleariOSLogs();
-  }
-
-  public async handleSendiOSLogs(): Promise<void> {
-    return this.iOSCommandHandlers.handleSendiOSLogs();
-  }
-
   public async handleSendiOSScreenshot(): Promise<void> {
     return this.iOSCommandHandlers.handleSendiOSScreenshot();
   }

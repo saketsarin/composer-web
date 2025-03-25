@@ -39,19 +39,6 @@ export interface iOSSimulatorInfo {
   runtime: string;
 }
 
-export interface iOSLog {
-  message: string;
-  timestamp: number;
-  level: string;
-  processId?: string;
-  processName?: string;
-}
-
-export interface iOSLogData {
-  logEntries: iOSLog[];
-  device?: iOSSimulatorInfo;
-}
-
 export interface iOSApp {
   name: string;
   bundleId: string;

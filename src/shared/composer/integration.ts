@@ -3,12 +3,10 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import {
   LogData,
-  iOSLogData,
   BrowserLog,
   NetworkRequest,
   Exception,
   DOMEvent,
-  iOSLog,
 } from "../types";
 import {
   clearClipboard,
@@ -129,20 +127,13 @@ export class ComposerIntegration {
 
   public async sendiOSToComposer(
     screenshot?: Buffer,
-    logs?: iOSLogData
+    logs?: undefined
   ): Promise<void> {
     const maxRetries = 2;
     let imageAttempt = 0;
-    let textAttempt = 0;
     let imageSuccess = false;
-    let textSuccess = false;
 
-    const formattedLogs = logs ? this.formatiOSLogs(logs) : "";
-
-    while (
-      (screenshot && !imageSuccess && imageAttempt <= maxRetries) ||
-      (formattedLogs && !textSuccess && textAttempt <= maxRetries)
-    ) {
+    while (screenshot && !imageSuccess && imageAttempt <= maxRetries) {
       try {
         await this.openComposer();
 
@@ -164,26 +155,7 @@ export class ComposerIntegration {
           }
         }
 
-        if (formattedLogs && !textSuccess) {
-          await delay(50);
-          await clearClipboard();
-          try {
-            await this.prepareTextForComposer(formattedLogs);
-            await delay(50);
-            await vscode.commands.executeCommand(
-              "editor.action.clipboardPasteAction"
-            );
-            textSuccess = true;
-          } catch (err) {
-            if (textAttempt === maxRetries) {
-              throw new Error(`Failed to send logs: ${String(err)}`);
-            }
-            textAttempt++;
-            await delay(50);
-          }
-        }
-
-        if ((!screenshot || imageSuccess) && (!formattedLogs || textSuccess)) {
+        if (!screenshot || imageSuccess) {
           await this.showSuccessNotification();
           return;
         }
@@ -300,36 +272,6 @@ export class ComposerIntegration {
         result += `${timestamp} - [${event.type}] ${event.target}\n`;
       });
     }
-
-    return result;
-  }
-
-  private formatiOSLogs(logs: iOSLogData): string {
-    let result = "---iOS Simulator Logs---\n";
-
-    logs.logEntries.forEach((log: iOSLog) => {
-      const timestamp = new Date(log.timestamp).toLocaleTimeString();
-      let prefix = "";
-
-      switch (log.level) {
-        case "Error":
-          prefix = "ERROR";
-          break;
-        case "Warning":
-          prefix = "WARN";
-          break;
-        case "Debug":
-          prefix = "DEBUG";
-          break;
-        case "Info":
-          prefix = "INFO";
-          break;
-        default:
-          prefix = "LOG";
-      }
-
-      result += `${timestamp} [${prefix}] ${log.message}\n`;
-    });
 
     return result;
   }

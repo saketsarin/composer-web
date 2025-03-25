@@ -122,23 +122,13 @@
         "category": "Composer Web"
       },
       {
-        "command": "web-preview.cleariOSLogs",
-        "title": "Clear iOS Simulator Logs",
-        "category": "Composer Web"
-      },
-      {
-        "command": "web-preview.sendiOSLogs",
-        "title": "Send iOS Logs to Composer",
-        "category": "Composer Web"
-      },
-      {
         "command": "web-preview.sendiOSScreenshot",
         "title": "Send iOS Screenshot to Composer",
         "category": "Composer Web"
       },
       {
         "command": "web-preview.captureiOS",
-        "title": "Capture iOS Simulator (Logs + Screenshot)",
+        "title": "Capture iOS Simulator Screenshot",
         "category": "Composer Web"
       }
     ],
@@ -179,14 +169,6 @@
           "when": "web-preview:isConnected"
         },
         {
-          "command": "web-preview.cleariOSLogs",
-          "when": "web-preview:iOSConnected"
-        },
-        {
-          "command": "web-preview.sendiOSLogs",
-          "when": "web-preview:iOSConnected"
-        },
-        {
           "command": "web-preview.sendiOSScreenshot",
           "when": "web-preview:iOSConnected"
         },
@@ -220,14 +202,6 @@
         },
         {
           "command": "web-preview.connectiOSSimulator",
-          "group": "3_ios"
-        },
-        {
-          "command": "web-preview.cleariOSLogs",
-          "group": "3_ios"
-        },
-        {
-          "command": "web-preview.sendiOSLogs",
           "group": "3_ios"
         },
         {
