@@ -379,6 +379,37 @@ export function getSettingsPanelHtml(): string {
             margin-top: 0.25rem;
             margin-bottom: 0.75rem;
         }
+
+        /* Toggle switch styling */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .toggle-label {
+            margin-left: 10px;
+            user-select: none;
+        }
+
+        .beta-badge {
+            background-color: #FF8C00;
+            color: white;
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        /* Beta Features */
+        .beta-features {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -432,6 +463,19 @@ export function getSettingsPanelHtml(): string {
         </div>
     </div>
     
+    <div class="beta-features">
+        <div class="filter-group">
+            <h3>iOS Features</h3>
+            <div class="filter-description">Enable iOS simulator integration features</div>
+            <div class="filter-options">
+                <div class="filter-option">
+                    <input type="checkbox" id="ios-features">
+                    <label for="ios-features">iOS Simulator Integration <span class="beta-badge">Beta</span></label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <div class="accessibility-info">
         <p>You can use the following modifiers: ${
           isMac ? "Command (⌘), Control, Option, Shift" : "Ctrl, Alt, Shift"
@@ -456,6 +500,7 @@ export function getSettingsPanelHtml(): string {
             // Request keybindings and settings on load
             vscode.postMessage({ command: 'getKeybindings' });
             vscode.postMessage({ command: 'getLogFilters' });
+            vscode.postMessage({ command: 'getFeatureToggles' });
             
             // Map from VSCode keybinding format to display format
             const keyDisplayMap = {
@@ -487,8 +532,11 @@ export function getSettingsPanelHtml(): string {
                 'web-preview.sendScreenshot': 'Capture a screenshot of the connected tab and send it to Composer.'
             };
             
-            let currentlyCapturing = null;
+            let recording = false;
+            let activeEl = null;
             let keybindings = [];
+            let logFilters = null;
+            let featureToggles = null;
             
             document.getElementById('reset-btn').addEventListener('click', () => {
                 vscode.postMessage({ command: 'resetToDefault' });
@@ -518,6 +566,18 @@ export function getSettingsPanelHtml(): string {
                 });
             });
 
+            // Handle feature toggle changes
+            document.getElementById('ios-features').addEventListener('change', () => {
+                const toggles = {
+                    iOSFeatures: document.getElementById('ios-features').checked
+                };
+                
+                vscode.postMessage({
+                    command: 'updateFeatureToggles',
+                    toggles: toggles
+                });
+            });
+
             // Handle messages from the extension
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -536,6 +596,10 @@ export function getSettingsPanelHtml(): string {
                         document.getElementById('log-log').checked = filters.console.log;
                         document.getElementById('network-enabled').checked = filters.network.enabled;
                         document.getElementById('network-errors-only').checked = filters.network.errorsOnly;
+                        break;
+                    case 'updateFeatureToggles':
+                        featureToggles = message.toggles;
+                        document.getElementById('ios-features').checked = featureToggles.iOSFeatures;
                         break;
                     case 'showNotification':
                         showNotification(message.type, message.message);
@@ -634,13 +698,13 @@ export function getSettingsPanelHtml(): string {
             
             function activateKeybindCapture(e) {
                 // If we're already capturing on another element, finish that capture first
-                if (currentlyCapturing && currentlyCapturing !== this) {
+                if (recording && recording !== this) {
                     // Save current element to apply capture to after finishing previous one
                     const nextElement = this;
                     
                     // Get data for current capture
-                    const prevCommandId = currentlyCapturing.dataset.command;
-                    const prevElement = currentlyCapturing;
+                    const prevCommandId = recording.dataset.command;
+                    const prevElement = recording;
                     
                     // First cancel existing capture
                     const existingKeybind = keybindings.find(kb => kb.command === prevCommandId);
@@ -655,13 +719,13 @@ export function getSettingsPanelHtml(): string {
                     }
                     
                     // Clean up previous event listeners
-                    window.removeEventListener('keydown', currentlyCapturing._captureKey, true);
-                    window.removeEventListener('keyup', currentlyCapturing._preventEvent, true);
-                    window.removeEventListener('keypress', currentlyCapturing._preventEvent, true);
-                    window.removeEventListener('click', currentlyCapturing._handleOutsideClick);
+                    window.removeEventListener('keydown', recording._captureKey, true);
+                    window.removeEventListener('keyup', recording._preventEvent, true);
+                    window.removeEventListener('keypress', recording._preventEvent, true);
+                    window.removeEventListener('click', recording._handleOutsideClick);
                     
                     // Reset state
-                    currentlyCapturing = null;
+                    recording = null;
                     
                     // Now continue with new element
                     setTimeout(() => {
@@ -675,7 +739,7 @@ export function getSettingsPanelHtml(): string {
                 const commandId = el.dataset.command;
                 el.classList.add('active');
                 el.innerHTML = '<span class="keybind-placeholder">Press keybinding...</span>';
-                currentlyCapturing = el;
+                recording = el;
                 
                 // Focus handling to ensure we can capture key events
                 el.focus();
@@ -740,7 +804,7 @@ export function getSettingsPanelHtml(): string {
                 // Handle clicks outside the keybinding input
                 function handleOutsideClick(e) {
                     // If the click is outside the current capturing element
-                    if (currentlyCapturing && !currentlyCapturing.contains(e.target)) {
+                    if (recording && !recording.contains(e.target)) {
                         finishCapture(true); // Cancel the capture
                     }
                 }
@@ -774,8 +838,8 @@ export function getSettingsPanelHtml(): string {
                     // Remove focus
                     el.blur();
                     
-                    // Reset currentlyCapturing
-                    currentlyCapturing = null;
+                    // Reset recording
+                    recording = null;
                 }
                 
                 // Add event listeners in capture phase (true parameter)

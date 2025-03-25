@@ -37,7 +37,17 @@ export class iOSSimulatorMonitor extends EventEmitter {
     return iOSSimulatorMonitor.instance;
   }
 
-  private updateStatusBar() {
+  public updateStatusBar() {
+    // Get feature toggle manager
+    const featureToggleManager =
+      require("../shared/config/feature-toggles").FeatureToggleManager.getInstance();
+
+    // Only show the status bar if iOS features are enabled
+    if (!featureToggleManager.isiOSFeaturesEnabled()) {
+      this.statusBarItem.hide();
+      return;
+    }
+
     if (!this.isConnected) {
       this.statusBarItem.text = "$(device-mobile) Connect iOS Simulator";
     } else {

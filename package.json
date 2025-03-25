@@ -2,7 +2,7 @@
   "name": "composer-web",
   "displayName": "Composer Web",
   "description": "A powerful browser integration extension for Cursor that captures live browser content and logs directly into Composer",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "saketsarin",
   "icon": "assets/icon.png",
   "private": false,
@@ -23,7 +23,9 @@
     "network",
     "monitoring",
     "chrome",
-    "devtools"
+    "devtools",
+    "ios",
+    "simulator"
   ],
   "engines": {
     "vscode": "^1.96.0",
@@ -169,12 +171,16 @@
           "when": "web-preview:isConnected"
         },
         {
+          "command": "web-preview.connectiOSSimulator",
+          "when": "web-preview:iOSFeaturesEnabled"
+        },
+        {
           "command": "web-preview.sendiOSScreenshot",
-          "when": "web-preview:iOSConnected"
+          "when": "web-preview:iOSConnected && web-preview:iOSFeaturesEnabled"
         },
         {
           "command": "web-preview.captureiOS",
-          "when": "web-preview:iOSConnected"
+          "when": "web-preview:iOSConnected && web-preview:iOSFeaturesEnabled"
         }
       ],
       "editor/context": [
@@ -202,15 +208,18 @@
         },
         {
           "command": "web-preview.connectiOSSimulator",
-          "group": "3_ios"
+          "group": "3_ios",
+          "when": "web-preview:iOSFeaturesEnabled"
         },
         {
           "command": "web-preview.sendiOSScreenshot",
-          "group": "3_ios"
+          "group": "3_ios",
+          "when": "web-preview:iOSConnected && web-preview:iOSFeaturesEnabled"
         },
         {
           "command": "web-preview.captureiOS",
-          "group": "3_ios"
+          "group": "3_ios",
+          "when": "web-preview:iOSConnected && web-preview:iOSFeaturesEnabled"
         },
         {
           "command": "web-preview.openSettings",

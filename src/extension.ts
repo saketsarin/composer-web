@@ -5,6 +5,7 @@ import { CommandHandlers } from "./commands";
 import { ToastService } from "./shared/utils/toast";
 import { SettingsPanel } from "./views/settings-panel";
 import { LogFilterManager } from "./shared/config/log-filters";
+import { FeatureToggleManager } from "./shared/config/feature-toggles";
 import { iOSSimulatorMonitor } from "./ios/simulator";
 
 export function activate(context: vscode.ExtensionContext) {
@@ -19,9 +20,21 @@ export function activate(context: vscode.ExtensionContext) {
   const toastService = ToastService.getInstance();
   const settingsPanel = SettingsPanel.getInstance();
   const logFilterManager = LogFilterManager.getInstance();
+  const featureToggleManager = FeatureToggleManager.getInstance();
 
   // Initialize managers
   logFilterManager.initialize(context);
+  featureToggleManager.initialize(context);
+
+  // Set iOSFeaturesEnabled context for menu visibility
+  vscode.commands.executeCommand(
+    "setContext",
+    "web-preview:iOSFeaturesEnabled",
+    featureToggleManager.isiOSFeaturesEnabled()
+  );
+
+  // Update iOS simulator status bar visibility based on feature toggle
+  iosMonitor.updateStatusBar();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("web-preview.smartCapture", () =>

@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 import { getSettingsPanelHtml } from "./templates/settings-panel.template";
 import { KeybindingManager } from "../shared/utils/keybinding-manager";
 import { LogFilterManager, LogFilters } from "../shared/config/log-filters";
+import {
+  FeatureToggleManager,
+  FeatureToggles,
+} from "../shared/config/feature-toggles";
 
 export class SettingsPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "composer-web.settings";
@@ -10,10 +14,12 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
   private disposables: vscode.Disposable[] = [];
   private keybindingManager: KeybindingManager;
   private logFilterManager: LogFilterManager;
+  private featureToggleManager: FeatureToggleManager;
 
   private constructor() {
     this.keybindingManager = KeybindingManager.getInstance();
     this.logFilterManager = LogFilterManager.getInstance();
+    this.featureToggleManager = FeatureToggleManager.getInstance();
   }
 
   public static getInstance(): SettingsPanel {
@@ -56,6 +62,14 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
             });
             break;
 
+          case "getFeatureToggles":
+            const toggles = this.featureToggleManager.getToggles();
+            webviewView.webview.postMessage({
+              command: "updateFeatureToggles",
+              toggles,
+            });
+            break;
+
           case "updateKeybinding":
             await this.updateKeybinding(
               message.data.command,
@@ -66,6 +80,10 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
 
           case "updateLogFilters":
             await this.updateLogFilters(message.filters);
+            break;
+
+          case "updateFeatureToggles":
+            await this.updateFeatureToggles(message.toggles);
             break;
 
           case "resetToDefault":
@@ -141,15 +159,32 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
     }
   }
 
+  private async updateFeatureToggles(toggles: FeatureToggles): Promise<void> {
+    try {
+      await this.featureToggleManager.updateToggles(toggles);
+      this.showNotification("info", "Feature toggles updated successfully");
+    } catch (error) {
+      console.error("Error updating feature toggles:", error);
+      this.showNotification(
+        "error",
+        "Failed to update feature toggles. Please try again."
+      );
+    }
+  }
+
   private async resetToDefault(): Promise<void> {
     try {
       await this.keybindingManager.resetToDefault();
       await this.logFilterManager.updateFilters(
         this.logFilterManager.getDefaultFilters()
       );
+      await this.featureToggleManager.updateToggles(
+        this.featureToggleManager.getDefaultToggles()
+      );
 
       const keybindings = await this.keybindingManager.loadKeybindings();
       const filters = this.logFilterManager.getFilters();
+      const toggles = this.featureToggleManager.getToggles();
 
       if (this.view) {
         this.view.webview.postMessage({
@@ -159,6 +194,10 @@ export class SettingsPanel implements vscode.WebviewViewProvider {
         this.view.webview.postMessage({
           command: "updateLogFilters",
           filters,
+        });
+        this.view.webview.postMessage({
+          command: "updateFeatureToggles",
+          toggles,
         });
       }
 
