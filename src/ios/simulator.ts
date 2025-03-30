@@ -1,33 +1,30 @@
 import * as vscode from "vscode";
 import { EventEmitter } from "events";
-import { exec } from "child_process";
-import { promisify } from "util";
-import * as path from "path";
-import * as fs from "fs/promises";
-import * as os from "os";
-import { iOSApp, iOSSimulatorInfo } from "../shared/types";
+import { iOSSimulatorInfo } from "../shared/types";
 import { ToastService } from "../shared/utils/toast";
 
-const execAsync = promisify(exec);
+import { iOSStatusBar } from "./services/status-bar";
+import { SimulatorScanner } from "./services/simulator-scanner";
 
 export class iOSSimulatorMonitor extends EventEmitter {
   private static instance: iOSSimulatorMonitor;
   private activeSimulator: iOSSimulatorInfo | null = null;
-  private statusBarItem: vscode.StatusBarItem;
   private isConnected: boolean = false;
   private toastService: ToastService;
   private disconnectEmitter = new vscode.EventEmitter<void>();
   private activeAppName: string | null = null;
 
+  // Modularized components
+  private statusBar: iOSStatusBar;
+  private simulatorScanner: SimulatorScanner;
+
   private constructor() {
     super();
-    this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-      99
-    );
-    this.statusBarItem.command = "web-preview.connectiOSSimulator";
     this.toastService = ToastService.getInstance();
-    this.updateStatusBar();
+
+    // Initialize components
+    this.statusBar = new iOSStatusBar();
+    this.simulatorScanner = new SimulatorScanner();
   }
 
   public static getInstance(): iOSSimulatorMonitor {
@@ -38,43 +35,13 @@ export class iOSSimulatorMonitor extends EventEmitter {
   }
 
   public updateStatusBar() {
-    // Get feature toggle manager
-    const featureToggleManager =
-      require("../shared/config/feature-toggles").FeatureToggleManager.getInstance();
-
-    // Only show the status bar if iOS features are enabled
-    if (!featureToggleManager.isiOSFeaturesEnabled()) {
-      this.statusBarItem.hide();
-      return;
-    }
-
-    if (!this.isConnected) {
-      this.statusBarItem.text = "$(device-mobile) Connect iOS Simulator";
-    } else {
-      this.statusBarItem.text = `$(device-mobile) ${
-        this.activeSimulator?.name || "iOS Simulator"
-      }${this.activeAppName ? ` (${this.activeAppName})` : ""}`;
-    }
-    this.statusBarItem.tooltip = this.isConnected
-      ? `Connected to: ${this.activeSimulator?.name} (${
-          this.activeSimulator?.runtime
-        })${
-          this.activeAppName ? `\nMonitoring app: ${this.activeAppName}` : ""
-        }`
-      : "Click to connect to an iOS Simulator";
-    this.statusBarItem.show();
-
-    // Update context flag for menu visibility
-    vscode.commands.executeCommand(
-      "setContext",
-      "web-preview:iOSConnected",
-      this.isConnected
-    );
+    // Delegate to status bar service
+    this.statusBar.update();
   }
 
   public async connect(): Promise<void> {
     try {
-      const simulators = await this.getAvailableSimulators();
+      const simulators = await this.simulatorScanner.getAvailableSimulators();
 
       if (!simulators.length) {
         throw new Error(
@@ -138,7 +105,9 @@ export class iOSSimulatorMonitor extends EventEmitter {
           cancellable: false,
         },
         async () => {
-          const apps = await this.getInstalledApps(this.activeSimulator!.udid);
+          const apps = await this.simulatorScanner.getInstalledApps(
+            this.activeSimulator!.udid
+          );
 
           if (apps.length === 0) {
             this.toastService.showError("No apps found on simulator");
@@ -165,7 +134,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
 
           // Specific app selected
           this.activeAppName = selection.app.name;
-          this.updateStatusBar();
+          this.statusBar.setActiveApp(this.activeAppName);
 
           // Show success notification
           await this.showSuccessNotification();
@@ -186,112 +155,40 @@ export class iOSSimulatorMonitor extends EventEmitter {
     }
   }
 
-  private async getInstalledApps(udid: string): Promise<iOSApp[]> {
-    const apps: iOSApp[] = [];
-
-    try {
-      // Get list of installed apps from the simulator
-      const { stdout } = await execAsync(`xcrun simctl listapps ${udid}`);
-
-      console.log("Debug - Raw output:", stdout);
-
-      // Split the output into app entries
-      const appEntries = stdout.split(/(?=\s*"[^"]+"\s*=\s*{)/);
-
-      for (const entry of appEntries) {
-        if (!entry.trim()) continue;
-
-        try {
-          // Extract bundle ID from the first line
-          const bundleIdMatch = entry.match(/"([^"]+)"\s*=/);
-          if (!bundleIdMatch) continue;
-          const bundleId = bundleIdMatch[1];
-
-          // Check if this is a user app
-          if (!entry.includes("ApplicationType = User")) continue;
-
-          // Extract display name
-          let name = "";
-          const displayNameMatch = entry.match(
-            /CFBundleDisplayName\s*=\s*([^;\n]+)/
-          );
-          const bundleNameMatch = entry.match(/CFBundleName\s*=\s*([^;\n]+)/);
-
-          if (displayNameMatch) {
-            name = displayNameMatch[1].trim();
-          } else if (bundleNameMatch) {
-            name = bundleNameMatch[1].trim();
-          }
-
-          // Clean up the name (remove quotes if present)
-          name = name.replace(/^"|"$/g, "").trim();
-
-          if (name && bundleId) {
-            console.log(`Debug - Found user app: ${name} (${bundleId})`);
-            apps.push({ name, bundleId });
-          }
-        } catch (parseError) {
-          console.error("Error parsing app entry:", parseError);
-          continue;
-        }
-      }
-
-      console.log(`Debug - Found ${apps.length} user-installed apps`);
-
-      if (apps.length === 0) {
-        throw new Error("No user-installed apps found in simulator");
-      }
-
-      return apps;
-    } catch (error) {
-      console.error("Error getting installed apps:", error);
-
-      // Show error to user if listapps command failed
-      if (this.toastService) {
-        this.toastService.showError(
-          "Failed to detect installed apps. Please try again or check if the simulator is running properly."
-        );
-      }
-
-      // Throw error to be handled by caller
-      throw new Error("Failed to get installed apps");
-    }
-  }
-
   private async monitorSimulator(simulator: iOSSimulatorInfo) {
-    if (this.activeSimulator) {
-      await this.stopMonitoring();
-    }
+    try {
+      // Store the active simulator
+      this.activeSimulator = simulator;
+      this.isConnected = true;
 
-    // Boot simulator if not running
-    if (simulator.status !== "Booted") {
-      this.toastService.showInfo(`Booting simulator ${simulator.name}...`);
-      try {
-        await execAsync(`xcrun simctl boot ${simulator.udid}`);
-      } catch (error) {
-        // If it fails, it might already be booting or have another issue
-        console.error(`Error booting simulator: ${error}`);
-      }
+      // Update status bar
+      this.statusBar.setConnected(true);
+      this.statusBar.setActiveSimulator(simulator);
+    } catch (error) {
+      console.error("Error monitoring simulator:", error);
+      this.toastService.showError("Failed to initialize simulator connection");
+      await this.disconnect();
     }
-
-    this.activeSimulator = simulator;
-    this.isConnected = true;
-    this.updateStatusBar();
   }
 
   private async showSuccessNotification() {
-    const message = this.activeAppName
-      ? `Connected to iOS simulator: ${this.activeSimulator?.name} (monitoring app: ${this.activeAppName})`
-      : `Connected to iOS simulator: ${this.activeSimulator?.name} (monitoring all apps)`;
-
-    this.toastService.showInfo(message);
+    if (this.activeSimulator && this.activeAppName) {
+      this.toastService.showInfo(
+        `Connected to iOS Simulator: ${this.activeSimulator.name}\nApp: ${this.activeAppName}`
+      );
+    }
   }
 
   private async stopMonitoring() {
-    this.isConnected = false;
-    this.activeSimulator = null;
+    // Reset state
     this.activeAppName = null;
-    this.updateStatusBar();
+    this.activeSimulator = null;
+    this.isConnected = false;
+
+    // Update status
+    this.statusBar.setConnected(false);
+    this.statusBar.setActiveSimulator(null);
+    this.statusBar.setActiveApp(null);
   }
 
   public onDisconnect(listener: () => void): vscode.Disposable {
@@ -308,84 +205,27 @@ export class iOSSimulatorMonitor extends EventEmitter {
   }
 
   public isSimulatorConnected(): boolean {
-    return this.isConnected && this.activeSimulator !== null;
+    return this.isConnected;
   }
 
   public dispose() {
-    this.statusBarItem.dispose();
+    this.disconnect();
+    this.statusBar.dispose();
   }
 
   public async captureScreenshot(): Promise<Buffer> {
     if (!this.activeSimulator) {
-      throw new Error("No simulator connected");
+      throw new Error("No active simulator to capture screenshot from");
     }
 
-    // Create a temporary file for the screenshot
-    const tempDir = os.tmpdir();
-    const screenshotPath = path.join(
-      tempDir,
-      `ios_screenshot_${Date.now()}.png`
-    );
-
     try {
-      // Capture screenshot using simctl
-      await execAsync(
-        `xcrun simctl io ${this.activeSimulator.udid} screenshot "${screenshotPath}"`
+      return await this.simulatorScanner.captureScreenshot(
+        this.activeSimulator.udid
       );
-
-      // Read the screenshot file
-      const screenshotBuffer = await fs.readFile(screenshotPath);
-
-      // Clean up
-      await fs.unlink(screenshotPath);
-
-      return screenshotBuffer;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to capture screenshot: ${errorMessage}`);
-    }
-  }
-
-  private async getAvailableSimulators(): Promise<iOSSimulatorInfo[]> {
-    try {
-      const { stdout } = await execAsync("xcrun simctl list devices -j");
-      const deviceList = JSON.parse(stdout);
-
-      const simulators: iOSSimulatorInfo[] = [];
-
-      // Process the device list JSON
-      const runtimes = Object.keys(deviceList.devices);
-
-      for (const runtime of runtimes) {
-        const devices = deviceList.devices[runtime];
-        for (const device of devices) {
-          // Only include booted simulators
-          if (!device.isDeleted && device.state === "Booted") {
-            simulators.push({
-              name: device.name,
-              udid: device.udid,
-              status: device.state,
-              runtime: runtime.replace(
-                "com.apple.CoreSimulator.SimRuntime.",
-                ""
-              ),
-            });
-          }
-        }
-      }
-
-      if (simulators.length === 0) {
-        throw new Error(
-          "No booted iOS simulators found. Please start one from Xcode first."
-        );
-      }
-
-      return simulators;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get available simulators: ${errorMessage}`);
+      throw new Error(`Failed to capture iOS screenshot: ${errorMessage}`);
     }
   }
 }
