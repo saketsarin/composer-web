@@ -1,20 +1,25 @@
 import * as vscode from "vscode";
 
 export class HealthChecker {
+  private static instance: HealthChecker;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private disconnectEmitter = new vscode.EventEmitter<void>();
 
-  constructor() {}
+  private constructor() {}
 
-  public startHealthCheck(checkFunction: () => Promise<boolean>): void {
+  public static getInstance(): HealthChecker {
+    if (!HealthChecker.instance) {
+      HealthChecker.instance = new HealthChecker();
+    }
+    return HealthChecker.instance;
+  }
+
+  public startChecking(checkFunction: () => Promise<void>): void {
     this.clearHealthCheck();
 
     this.healthCheckInterval = setInterval(async () => {
       try {
-        const isHealthy = await checkFunction();
-        if (!isHealthy) {
-          throw new Error("Health check failed");
-        }
+        await checkFunction();
       } catch (error) {
         this.clearHealthCheck();
         this.disconnectEmitter.fire();

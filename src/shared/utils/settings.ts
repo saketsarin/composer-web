@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { ToastService } from "./toast";
-import { ConfigManager } from "../config";
+import { ConfigManager } from "./config-manager";
+import { ErrorHandler, ConfigurationError } from "./error-handler";
 import { KeybindConfig } from "../types";
 
 interface VSCodeKeybinding {
@@ -15,10 +16,12 @@ export class SettingsService {
   private static instance: SettingsService;
   private toastService: ToastService;
   private configManager: ConfigManager;
+  private errorHandler: ErrorHandler;
 
   private constructor() {
     this.toastService = ToastService.getInstance();
     this.configManager = ConfigManager.getInstance();
+    this.errorHandler = ErrorHandler.getInstance();
   }
 
   public static getInstance(): SettingsService {
@@ -76,13 +79,11 @@ export class SettingsService {
 
       this.toastService.showInfo("Keybinding updated successfully");
     } catch (error) {
-      console.error("Failed to update keybindings:", error);
-      this.toastService.showError(
-        `Failed to update keybindings: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+      this.errorHandler.handleConfigError(
+        error,
+        "Failed to update keybindings"
       );
-      throw new Error(
+      throw new ConfigurationError(
         `Failed to update keybindings: ${
           error instanceof Error ? error.message : String(error)
         }`
@@ -105,7 +106,12 @@ export class SettingsService {
       try {
         const content = fs.readFileSync(keybindingsPath, "utf8");
         keybindings = JSON.parse(content);
-      } catch (e) {
+      } catch (error) {
+        this.errorHandler.handleError(
+          error,
+          "Failed to parse keybindings.json",
+          true
+        );
         keybindings = [];
       }
 
@@ -131,9 +137,10 @@ export class SettingsService {
         "utf8"
       );
     } catch (error) {
-      console.error("Failed to update keybindings.json:", error);
-      // Don't show toast here since this error is caught by updateKeybinding
-      // which will show a toast with more context
+      this.errorHandler.handleConfigError(
+        error,
+        "Failed to update keybindings.json"
+      );
       throw error;
     }
   }
@@ -142,6 +149,10 @@ export class SettingsService {
     const isWindows = process.platform === "win32";
     const isMac = process.platform === "darwin";
     const homeDir = process.env.HOME || process.env.USERPROFILE;
+
+    if (!homeDir) {
+      throw new ConfigurationError("Unable to determine user home directory");
+    }
 
     if (isWindows) {
       return path.join(
@@ -152,7 +163,7 @@ export class SettingsService {
       );
     } else if (isMac) {
       return path.join(
-        homeDir || "",
+        homeDir,
         "Library",
         "Application Support",
         "Code",
@@ -160,13 +171,7 @@ export class SettingsService {
         "keybindings.json"
       );
     } else {
-      return path.join(
-        homeDir || "",
-        ".config",
-        "Code",
-        "User",
-        "keybindings.json"
-      );
+      return path.join(homeDir, ".config", "Code", "User", "keybindings.json");
     }
   }
 }

@@ -4,6 +4,8 @@ import { EventEmitter } from "events";
 import { MonitoredPage, LogData } from "../shared/types";
 import { ConfigManager } from "../shared/config";
 import { ToastService } from "../shared/utils/toast";
+import { ErrorHandler, BrowserError } from "../shared/utils/error-handler";
+import { BrowserLog, NetworkRequest } from "../shared/types";
 
 import { BrowserLogHandler } from "./utils/log-handler";
 import { PageManager } from "./services/page-manager";
@@ -13,31 +15,34 @@ import { BrowserEventHandlers } from "./events/event-handlers";
 
 export class BrowserMonitor extends EventEmitter {
   private static instance: BrowserMonitor;
-  private isConnected: boolean = false;
-  private configManager: ConfigManager;
+  private pageManager: PageManager;
+  private healthChecker: HealthChecker;
   private toastService: ToastService;
+  private errorHandler: ErrorHandler;
+  private isConnected: boolean = false;
+  private disconnectEmitter = new vscode.EventEmitter<void>();
 
   // Modularized components
-  private pageManager: PageManager;
   private logHandler: BrowserLogHandler;
   private statusBar: BrowserStatusBar;
-  private healthChecker: HealthChecker;
   private eventHandlers: BrowserEventHandlers;
 
   private constructor() {
     super();
-    this.configManager = ConfigManager.getInstance();
+    this.pageManager = PageManager.getInstance();
+    this.healthChecker = HealthChecker.getInstance();
     this.toastService = ToastService.getInstance();
+    this.errorHandler = ErrorHandler.getInstance();
 
     // Initialize all components
-    this.pageManager = new PageManager();
     this.logHandler = new BrowserLogHandler();
     this.statusBar = new BrowserStatusBar();
-    this.healthChecker = new HealthChecker();
     this.eventHandlers = new BrowserEventHandlers(this.logHandler);
 
-    // Set up disconnect handler
-    this.healthChecker.onDisconnect(() => this.handleSessionError());
+    // Set up health checker disconnect handler
+    this.healthChecker.onDisconnect(() => {
+      this.disconnectEmitter.fire();
+    });
   }
 
   public static getInstance(): BrowserMonitor {
@@ -48,17 +53,16 @@ export class BrowserMonitor extends EventEmitter {
   }
 
   public async connect(): Promise<void> {
-    const debugUrl = this.configManager.get<string>("remoteDebuggingUrl");
-
     try {
-      // Connect to browser
-      await this.pageManager.connectToBrowser(debugUrl);
+      if (this.isConnected) {
+        await this.disconnect();
+      }
 
-      // Get available pages
+      await this.pageManager.connect();
       const pages = await this.pageManager.getPages();
 
       if (!pages?.length) {
-        throw new Error(
+        throw new BrowserError(
           "No open pages found. Please open at least one tab in Chrome."
         );
       }
@@ -73,47 +77,81 @@ export class BrowserMonitor extends EventEmitter {
         return;
       }
 
-      await this.monitorPage(selection.page, selection.info);
+      await this.pageManager.setActivePage(selection.page, selection.info);
+      this.isConnected = true;
+      this.statusBar.setConnected(true);
+      await this.showSuccessNotification();
+      this.startHealthCheck();
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.toastService.showError(`Failed to connect: ${errorMessage}`);
-      this.disconnect();
+      this.errorHandler.handleBrowserError(
+        error,
+        "Failed to connect to browser"
+      );
+      this.isConnected = false;
+      this.statusBar.setConnected(false);
+      throw error;
     }
   }
 
-  private async monitorPage(page: puppeteer.Page, pageInfo: MonitoredPage) {
-    if (this.isConnected) {
-      await this.stopMonitoring();
-    }
-
+  public async disconnect(): Promise<void> {
     try {
-      // Setup active page
-      const client = await this.pageManager.setActivePage(page, pageInfo);
-
-      // Set up event listeners
-      this.eventHandlers.setupEventListeners(client);
-
-      // Set up page event listeners
-      this.pageManager.setupPageEventListeners(page, () =>
-        this.handlePageClosed()
-      );
-
-      // Start health checks
-      this.healthChecker.startHealthCheck(() =>
-        this.pageManager.checkPageAccessible()
-      );
-
-      // Update status
-      this.isConnected = true;
-      this.statusBar.setConnected(true);
-      this.statusBar.setActivePage(pageInfo);
-
-      await this.showSuccessNotification();
+      await this.pageManager.disconnect();
+      this.isConnected = false;
+      this.statusBar.setConnected(false);
+      this.stopHealthCheck();
+      this.disconnectEmitter.fire();
     } catch (error) {
-      this.toastService.showError("Failed to initialize browser session");
-      await this.disconnect();
+      this.errorHandler.handleBrowserError(
+        error,
+        "Failed to disconnect from browser"
+      );
+      throw error;
     }
+  }
+
+  public onDisconnect(listener: () => void): vscode.Disposable {
+    return this.disconnectEmitter.event(listener);
+  }
+
+  public isPageConnected(): boolean {
+    return this.isConnected && this.pageManager.getActivePage() !== null;
+  }
+
+  public getLogs(): { console: BrowserLog[]; network: NetworkRequest[] } {
+    if (!this.isPageConnected()) {
+      throw new BrowserError("No browser tab connected");
+    }
+    return this.logHandler.getLogs();
+  }
+
+  public clearLogs(): void {
+    if (!this.isPageConnected()) {
+      throw new BrowserError("No browser tab connected");
+    }
+    this.logHandler.clearLogs();
+    this.toastService.showLogsClearedSuccess();
+  }
+
+  private startHealthCheck(): void {
+    this.healthChecker.startChecking(async () => {
+      try {
+        const isHealthy = await this.pageManager.checkPageAccessible();
+        if (!isHealthy) {
+          await this.handleSessionError();
+        }
+      } catch (error) {
+        this.errorHandler.handleBrowserError(
+          error,
+          "Health check failed",
+          true
+        );
+        await this.handleSessionError();
+      }
+    });
+  }
+
+  private stopHealthCheck(): void {
+    this.healthChecker.clearHealthCheck();
   }
 
   private async showSuccessNotification() {
@@ -132,49 +170,15 @@ export class BrowserMonitor extends EventEmitter {
     await this.disconnect();
   }
 
-  private async handlePageClosed() {
-    await this.disconnect();
-  }
-
-  public clearLogs(): void {
-    this.logHandler.clearLogs();
-  }
-
-  public onDisconnect(listener: () => void): vscode.Disposable {
-    return this.healthChecker.onDisconnect(listener);
-  }
-
-  public async disconnect() {
-    this.healthChecker.clearHealthCheck();
-    await this.pageManager.disconnect();
-    this.isConnected = false;
-    this.statusBar.setConnected(false);
-    this.statusBar.setActivePage(null);
-  }
-
-  private async stopMonitoring() {
-    this.healthChecker.clearHealthCheck();
-    await this.pageManager.stopMonitoring();
-    this.isConnected = false;
-    this.statusBar.setConnected(false);
-  }
-
   public getActivePage(): MonitoredPage | null {
     return this.pageManager.getActivePage();
-  }
-
-  public getLogs(): LogData {
-    return this.logHandler.getLogs();
-  }
-
-  public isPageConnected(): boolean {
-    return this.isConnected;
   }
 
   public dispose() {
     this.disconnect();
     this.statusBar.dispose();
     this.healthChecker.dispose();
+    this.disconnectEmitter.dispose();
   }
 
   public async getPageForScreenshot(): Promise<puppeteer.Page | null> {
