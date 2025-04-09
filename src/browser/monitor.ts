@@ -1,11 +1,9 @@
 import * as vscode from "vscode";
 import * as puppeteer from "puppeteer-core";
 import { EventEmitter } from "events";
-import { MonitoredPage, LogData } from "../shared/types";
-import { ConfigManager } from "../shared/config";
+import { MonitoredPage, BrowserLog, NetworkRequest } from "../shared/types";
 import { ToastService } from "../shared/utils/toast";
 import { ErrorHandler, BrowserError } from "../shared/utils/error-handler";
-import { BrowserLog, NetworkRequest } from "../shared/types";
 
 import { BrowserLogHandler } from "./utils/log-handler";
 import { PageManager } from "./services/page-manager";
@@ -77,7 +75,11 @@ export class BrowserMonitor extends EventEmitter {
         return;
       }
 
-      await this.pageManager.setActivePage(selection.page, selection.info);
+      const client = await this.pageManager.setActivePage(
+        selection.page,
+        selection.info
+      );
+      this.eventHandlers.setupEventListeners(client);
       this.isConnected = true;
       this.statusBar.setConnected(true);
       await this.showSuccessNotification();
@@ -140,11 +142,7 @@ export class BrowserMonitor extends EventEmitter {
           await this.handleSessionError();
         }
       } catch (error) {
-        this.errorHandler.handleBrowserError(
-          error,
-          "Health check failed",
-          true
-        );
+        this.errorHandler.handleBrowserError(error, "Health check failed");
         await this.handleSessionError();
       }
     });

@@ -1,4 +1,3 @@
-import * as vscode from "vscode";
 import { ToastService } from "./toast";
 
 // Custom error types
@@ -66,10 +65,12 @@ export class ErrorHandler {
     operation: () => Promise<T>,
     progressTitle: string
   ): Promise<T> {
+    let result: T;
     try {
-      return await this.toastService.showProgress(progressTitle, async () => {
-        return await operation();
+      await this.toastService.showProgress(progressTitle, async () => {
+        result = await operation();
       });
+      return result!;
     } catch (error) {
       this.handleError(error, context);
       throw error;

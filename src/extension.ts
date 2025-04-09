@@ -36,6 +36,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Update iOS simulator status bar visibility based on feature toggle
   iosMonitor.updateStatusBar();
 
+  // Subscribe to iOS simulator disconnect events
+  const iosDisconnectSubscription = iosMonitor.onDisconnect(() => {
+    toastService.showiOSSimulatorDisconnected();
+  });
+
   context.subscriptions.push(
     vscode.commands.registerCommand("web-preview.smartCapture", () =>
       commandHandlers.handleSmartCapture()
@@ -65,15 +70,13 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(
       SettingsPanel.viewType,
       settingsPanel
-    )
+    ),
+    iosDisconnectSubscription
   );
 
+  // Subscribe to browser disconnect events
   browserMonitor.onDisconnect(() => {
     toastService.showBrowserDisconnected();
-  });
-
-  iosMonitor.onDisconnect(() => {
-    toastService.showiOSSimulatorDisconnected();
   });
 }
 

@@ -2,9 +2,8 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { ToastService } from "./toast";
-import { ConfigManager } from "./config-manager";
+import { ConfigManager } from "../config";
 import { ErrorHandler, ConfigurationError } from "./error-handler";
-import { KeybindConfig } from "../types";
 
 interface VSCodeKeybinding {
   command: string;
@@ -34,7 +33,9 @@ export class SettingsService {
   public getKeybinding(command: string): string {
     const customKeybindings =
       this.configManager.get<KeybindConfig[]>("customKeybindings") || [];
-    const binding = customKeybindings.find((kb) => kb.command === command);
+    const binding = customKeybindings.find(
+      (kb: VSCodeKeybinding) => kb.command === command
+    );
     return binding?.key || "";
   }
 
@@ -42,34 +43,8 @@ export class SettingsService {
     command: string,
     newKeybinding: string
   ): Promise<void> {
-    const fullCommand = `web-preview.${command}`;
-
     try {
-      await this.updateVSCodeKeybindings(fullCommand, newKeybinding);
-
-      // Get current keybindings
-      const customKeybindings =
-        this.configManager.get<KeybindConfig[]>("customKeybindings") || [];
-
-      // Remove existing binding for this command if it exists
-      const existingIndex = customKeybindings.findIndex(
-        (kb) => kb.command === command
-      );
-      if (existingIndex !== -1) {
-        customKeybindings.splice(existingIndex, 1);
-      }
-
-      // Add new binding
-      const isMac = process.platform === "darwin";
-      customKeybindings.push({
-        command,
-        key: isMac ? newKeybinding : newKeybinding.replace(/cmd/g, "ctrl"),
-        mac: isMac ? newKeybinding : newKeybinding.replace(/ctrl/g, "cmd"),
-      });
-
-      // Update the entire customKeybindings array
-      await this.configManager.update("customKeybindings", customKeybindings);
-
+      await this.updateVSCodeKeybindings(command, newKeybinding);
       await vscode.commands.executeCommand(
         "workbench.action.openGlobalKeybindings"
       );
@@ -116,7 +91,7 @@ export class SettingsService {
       }
 
       keybindings = keybindings.filter(
-        (k: VSCodeKeybinding) => k.command !== command
+        (kb: VSCodeKeybinding) => kb.command !== command
       );
 
       const isMac = process.platform === "darwin";

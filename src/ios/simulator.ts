@@ -6,6 +6,10 @@ import { ErrorHandler, SimulatorError } from "../shared/utils/error-handler";
 import { iOSStatusBar } from "./services/status-bar";
 import { SimulatorScanner } from "./services/simulator-scanner";
 
+interface SimulatorQuickPickItem extends vscode.QuickPickItem {
+  simulator: iOSSimulatorInfo;
+}
+
 export class iOSSimulatorMonitor extends EventEmitter {
   private static instance: iOSSimulatorMonitor;
   private activeSimulator: iOSSimulatorInfo | null = null;
@@ -47,7 +51,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
         await this.disconnect();
       }
 
-      const simulators = await this.simulatorScanner.getSimulators();
+      const simulators = await this.simulatorScanner.getAvailableSimulators();
 
       if (!simulators.length) {
         throw new SimulatorError(
@@ -55,23 +59,22 @@ export class iOSSimulatorMonitor extends EventEmitter {
         );
       }
 
-      const selection = await vscode.window.showQuickPick(
-        simulators.map((sim) => ({
-          label: sim.name,
-          description: `(${sim.runtime})`,
-          simulator: sim,
-        })),
-        { placeHolder: "Select iOS Simulator" }
-      );
+      const selection =
+        await vscode.window.showQuickPick<SimulatorQuickPickItem>(
+          simulators.map((sim: iOSSimulatorInfo) => ({
+            label: sim.name,
+            description: `(${sim.runtime})`,
+            simulator: sim,
+          })),
+          { placeHolder: "Select iOS Simulator" }
+        );
 
       if (!selection) {
         return;
       }
 
-      this.activeSimulator = selection.simulator;
-      this.isConnected = true;
-      this.statusBar.setConnected(true);
-      await this.showSuccessNotification();
+      await this.monitorSimulator(selection.simulator);
+      await this.selectAppToMonitor();
     } catch (error) {
       this.errorHandler.handleSimulatorError(
         error,
@@ -195,14 +198,18 @@ export class iOSSimulatorMonitor extends EventEmitter {
     this.statusBar.dispose();
   }
 
-  public async captureScreenshot(): Promise<string> {
+  public async captureScreenshot(): Promise<Buffer> {
     try {
       if (!this.isSimulatorConnected()) {
         throw new SimulatorError("No iOS simulator connected");
       }
 
+      if (!this.activeSimulator) {
+        throw new SimulatorError("No active simulator");
+      }
+
       return await this.simulatorScanner.captureScreenshot(
-        this.activeSimulator!
+        this.activeSimulator.udid
       );
     } catch (error) {
       this.errorHandler.handleSimulatorError(
@@ -213,7 +220,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
     }
   }
 
-  public onDisconnect(): vscode.Event<void> {
-    return this.disconnectEmitter.event;
+  public onDisconnect(listener: () => void): vscode.Disposable {
+    return this.disconnectEmitter.event(listener);
   }
 }
