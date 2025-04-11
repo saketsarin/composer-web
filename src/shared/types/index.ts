@@ -55,7 +55,7 @@ export interface ExtensionConfig {
 export interface KeybindConfig {
   command: string;
   key: string;
-  mac: string;
+  mac?: string;
 }
 
 export interface LogData {

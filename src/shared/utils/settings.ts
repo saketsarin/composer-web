@@ -4,12 +4,7 @@ import * as path from "path";
 import { ToastService } from "./toast";
 import { ConfigManager } from "../config";
 import { ErrorHandler, ConfigurationError } from "./error-handler";
-
-interface VSCodeKeybinding {
-  command: string;
-  key: string;
-  mac?: string;
-}
+import { KeybindConfig } from "../types";
 
 export class SettingsService {
   private static instance: SettingsService;
@@ -34,7 +29,7 @@ export class SettingsService {
     const customKeybindings =
       this.configManager.get<KeybindConfig[]>("customKeybindings") || [];
     const binding = customKeybindings.find(
-      (kb: VSCodeKeybinding) => kb.command === command
+      (kb: KeybindConfig) => kb.command === command
     );
     return binding?.key || "";
   }
@@ -77,7 +72,7 @@ export class SettingsService {
         fs.writeFileSync(keybindingsPath, "[]", "utf8");
       }
 
-      let keybindings: VSCodeKeybinding[] = [];
+      let keybindings: KeybindConfig[] = [];
       try {
         const content = fs.readFileSync(keybindingsPath, "utf8");
         keybindings = JSON.parse(content);
@@ -91,11 +86,11 @@ export class SettingsService {
       }
 
       keybindings = keybindings.filter(
-        (kb: VSCodeKeybinding) => kb.command !== command
+        (kb: KeybindConfig) => kb.command !== command
       );
 
       const isMac = process.platform === "darwin";
-      const newBinding: VSCodeKeybinding = {
+      const newBinding: KeybindConfig = {
         command: command,
         key: isMac ? newKeybinding : newKeybinding.replace(/cmd/g, "ctrl"),
       };
