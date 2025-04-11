@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { ToastService } from "./toast";
+import { ConfigManager } from "../config";
 
 interface VSCodeKeybinding {
   command: string;
@@ -12,9 +13,11 @@ interface VSCodeKeybinding {
 export class SettingsService {
   private static instance: SettingsService;
   private toastService: ToastService;
+  private configManager: ConfigManager;
 
   private constructor() {
     this.toastService = ToastService.getInstance();
+    this.configManager = ConfigManager.getInstance();
   }
 
   public static getInstance(): SettingsService {
@@ -24,30 +27,20 @@ export class SettingsService {
     return SettingsService.instance;
   }
 
-  private getConfiguration() {
-    return vscode.workspace.getConfiguration("composerWeb");
-  }
-
   public getKeybinding(command: string): string {
-    const config = this.getConfiguration();
-    return config.get(`keybindings.${command}`) as string;
+    return this.configManager.get<string>(`keybindings.${command}`);
   }
 
   public async updateKeybinding(
     command: string,
     newKeybinding: string
   ): Promise<void> {
-    const config = this.getConfiguration();
     const fullCommand = `web-preview.${command}`;
 
     try {
       await this.updateVSCodeKeybindings(fullCommand, newKeybinding);
 
-      await config.update(
-        `keybindings.${command}`,
-        newKeybinding,
-        vscode.ConfigurationTarget.Global
-      );
+      await this.configManager.update(`keybindings.${command}`, newKeybinding);
 
       await vscode.commands.executeCommand(
         "workbench.action.openGlobalKeybindings"
