@@ -2,6 +2,7 @@ import * as puppeteer from "puppeteer-core";
 import { MonitoredPage } from "../../shared/types";
 
 export class PageManager {
+  private static instance: PageManager;
   private browser: puppeteer.Browser | null = null;
   private activePage: {
     page: puppeteer.Page;
@@ -9,9 +10,21 @@ export class PageManager {
     info: MonitoredPage;
   } | null = null;
 
-  constructor() {}
+  private constructor() {}
 
-  public async connectToBrowser(
+  public static getInstance(): PageManager {
+    if (!PageManager.instance) {
+      PageManager.instance = new PageManager();
+    }
+    return PageManager.instance;
+  }
+
+  public async connect(): Promise<void> {
+    const browserURL = "http://localhost:9222";
+    await this.connectToBrowser(browserURL);
+  }
+
+  private async connectToBrowser(
     browserURL: string
   ): Promise<puppeteer.Browser> {
     const puppeteer = await import("puppeteer-core");

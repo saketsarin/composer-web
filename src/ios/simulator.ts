@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { EventEmitter } from "events";
 import { iOSSimulatorInfo } from "../shared/types";
 import { ToastService } from "../shared/utils/toast";
-
+import { ErrorHandler, SimulatorError } from "../shared/utils/error-handler";
 import { iOSStatusBar } from "./services/status-bar";
 import { SimulatorScanner } from "./services/simulator-scanner";
 
@@ -11,6 +11,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
   private activeSimulator: iOSSimulatorInfo | null = null;
   private isConnected: boolean = false;
   private toastService: ToastService;
+  private errorHandler: ErrorHandler;
   private disconnectEmitter = new vscode.EventEmitter<void>();
   private activeAppName: string | null = null;
 
@@ -21,6 +22,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
   private constructor() {
     super();
     this.toastService = ToastService.getInstance();
+    this.errorHandler = ErrorHandler.getInstance();
 
     // Initialize components
     this.statusBar = new iOSStatusBar();
@@ -41,53 +43,42 @@ export class iOSSimulatorMonitor extends EventEmitter {
 
   public async connect(): Promise<void> {
     try {
-      const simulators = await this.simulatorScanner.getAvailableSimulators();
+      if (this.isConnected) {
+        await this.disconnect();
+      }
+
+      const simulators = await this.simulatorScanner.getSimulators();
 
       if (!simulators.length) {
-        throw new Error(
-          "No iOS simulators found. Please start one from Xcode first."
+        throw new SimulatorError(
+          "No iOS simulators found. Please start a simulator first."
         );
       }
 
-      let selectedSimulator: iOSSimulatorInfo;
-
-      // Auto-select if only one simulator is available
-      if (simulators.length === 1) {
-        selectedSimulator = simulators[0];
-        this.toastService.showInfo(
-          `Auto-selected simulator: ${selectedSimulator.name}`
-        );
-      } else {
-        // Otherwise show picker for user to choose
-        const picks = simulators.map((simulator) => ({
-          label: simulator.name,
-          description: `${simulator.runtime} (${simulator.status})`,
-          simulator,
-        }));
-
-        const selection = await vscode.window.showQuickPick(picks, {
-          placeHolder: "Select an iOS simulator to monitor",
-        });
-
-        if (!selection) {
-          return;
-        }
-
-        selectedSimulator = selection.simulator;
-      }
-
-      // Connect to the selected simulator first
-      await this.monitorSimulator(selectedSimulator);
-
-      // Now get the list of apps and let user choose
-      await this.selectAppToMonitor();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.toastService.showError(
-        `Failed to connect to iOS simulator: ${errorMessage}`
+      const selection = await vscode.window.showQuickPick(
+        simulators.map((sim) => ({
+          label: sim.name,
+          description: `(${sim.runtime})`,
+          simulator: sim,
+        })),
+        { placeHolder: "Select iOS Simulator" }
       );
-      this.disconnect();
+
+      if (!selection) {
+        return;
+      }
+
+      this.activeSimulator = selection.simulator;
+      this.isConnected = true;
+      this.statusBar.setConnected(true);
+      await this.showSuccessNotification();
+    } catch (error) {
+      this.errorHandler.handleSimulatorError(
+        error,
+        "Failed to connect to iOS simulator"
+      );
+      this.isConnected = false;
+      throw error;
     }
   }
 
@@ -175,25 +166,20 @@ export class iOSSimulatorMonitor extends EventEmitter {
     }
   }
 
-  private async stopMonitoring() {
-    // Reset state
-    this.activeAppName = null;
-    this.activeSimulator = null;
-    this.isConnected = false;
-
-    // Update status
-    this.statusBar.setConnected(false);
-    this.statusBar.setActiveSimulator(null);
-    this.statusBar.setActiveApp(null);
-  }
-
-  public onDisconnect(listener: () => void): vscode.Disposable {
-    return this.disconnectEmitter.event(listener);
-  }
-
-  public async disconnect() {
-    await this.stopMonitoring();
-    this.disconnectEmitter.fire();
+  public async disconnect(): Promise<void> {
+    try {
+      this.activeSimulator = null;
+      this.activeAppName = null;
+      this.isConnected = false;
+      this.statusBar.setConnected(false);
+      this.disconnectEmitter.fire();
+    } catch (error) {
+      this.errorHandler.handleSimulatorError(
+        error,
+        "Failed to disconnect from iOS simulator"
+      );
+      throw error;
+    }
   }
 
   public getActiveSimulator(): iOSSimulatorInfo | null {
@@ -201,7 +187,7 @@ export class iOSSimulatorMonitor extends EventEmitter {
   }
 
   public isSimulatorConnected(): boolean {
-    return this.isConnected;
+    return this.isConnected && this.activeSimulator !== null;
   }
 
   public dispose() {
@@ -209,19 +195,25 @@ export class iOSSimulatorMonitor extends EventEmitter {
     this.statusBar.dispose();
   }
 
-  public async captureScreenshot(): Promise<Buffer> {
-    if (!this.activeSimulator) {
-      throw new Error("No active simulator to capture screenshot from");
-    }
-
+  public async captureScreenshot(): Promise<string> {
     try {
+      if (!this.isSimulatorConnected()) {
+        throw new SimulatorError("No iOS simulator connected");
+      }
+
       return await this.simulatorScanner.captureScreenshot(
-        this.activeSimulator.udid
+        this.activeSimulator!
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to capture iOS screenshot: ${errorMessage}`);
+      this.errorHandler.handleSimulatorError(
+        error,
+        "Failed to capture iOS screenshot"
+      );
+      throw error;
     }
+  }
+
+  public onDisconnect(): vscode.Event<void> {
+    return this.disconnectEmitter.event;
   }
 }
