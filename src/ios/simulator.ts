@@ -98,12 +98,8 @@ export class iOSSimulatorMonitor extends EventEmitter {
 
     try {
       // Show a loading indicator
-      vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Loading simulator apps...",
-          cancellable: false,
-        },
+      await this.toastService.showProgress(
+        "Loading simulator apps...",
         async () => {
           const apps = await this.simulatorScanner.getInstalledApps(
             this.activeSimulator!.udid

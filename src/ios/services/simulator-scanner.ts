@@ -12,7 +12,7 @@ export class SimulatorScanner {
       // Get list of simulators
       const { stdout } = await execAsync("xcrun simctl list devices -j");
 
-      const simulators: iOSSimulatorInfo[] = [];
+      const allSimulators: iOSSimulatorInfo[] = [];
       const simData = JSON.parse(stdout);
 
       // Process each runtime
@@ -26,7 +26,7 @@ export class SimulatorScanner {
 
           for (const device of devices) {
             if (device.isAvailable) {
-              simulators.push({
+              allSimulators.push({
                 name: device.name,
                 udid: device.udid,
                 runtime: runtimeName,
@@ -37,7 +37,14 @@ export class SimulatorScanner {
         }
       }
 
-      return simulators;
+      // First try to get only booted simulators
+      const bootedSimulators = allSimulators.filter(
+        (sim) => sim.status === "Booted"
+      );
+
+      // If there are booted simulators, return only those
+      // Otherwise return all available simulators
+      return bootedSimulators.length > 0 ? bootedSimulators : allSimulators;
     } catch (error) {
       console.error("Error getting simulators:", error);
       throw new Error(
